@@ -79,7 +79,7 @@
 
   /* ---------- 核心测算：两个滑块 ---------- */
   .controls{
-    display:grid; grid-template-columns:repeat(2, minmax(0, 1fr));
+    display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
     gap:clamp(14px, 8px + 2vw, 26px);
     margin-bottom:clamp(12px, 8px + 1.2vw, 22px);
   }
@@ -204,9 +204,16 @@
   /* ============================================================
      2. 断点策略
      ------------------------------------------------------------
-     小屏手机 ≤360 · 手机 ≤640 · 平板/笔记本 641–1023（走默认流体样式）
-     · 桌面 ≥1024（走默认流体样式） · 手机横屏（按高度压缩）
+     小屏手机 ≤340 · 手机 ≤640 · 小平板/窄窗口 641–820（两列 + 通过率整行）
+     · 平板/笔记本/桌面 ≥821（三列并排，走默认流体样式）
+     · 手机横屏（按高度压缩） · 触屏（放大热区）
      ============================================================ */
+
+  /* ---------- 小平板 / 窄窗口（641–820px）：两列 + 通过率独占一行 ---------- */
+  @media (min-width:641px) and (max-width:820px){
+    .controls{grid-template-columns:repeat(2, minmax(0, 1fr))}
+    .controls > div:nth-child(3){grid-column:1 / -1}
+  }
 
   /* ---------- 手机（≤640px）：紧凑版式 ----------
      纵向尺寸全部改用 dvh 流体化：矮屏保持紧凑（不溢出），
@@ -219,12 +226,15 @@
     h2::before{height:13px}
     .panel{padding:clamp(13px, 2.3dvh, 22px); border-radius:12px}
 
-    /* 滑块改为上下堆叠，获得更长的拖动行程 */
-    .controls{grid-template-columns:1fr; gap:clamp(11px, 2.1dvh, 20px);
-              margin-bottom:clamp(13px, 2.1dvh, 20px)}
+    /* 单价 / 产能 并排一行（省纵向空间），通过率独占整行（拖动行程更长） */
+    .controls{grid-template-columns:repeat(2, minmax(0, 1fr));
+              gap:clamp(9px, 1.6dvh, 15px) 10px;
+              margin-bottom:clamp(11px, 1.8dvh, 18px)}
+    .controls > div:nth-child(3){grid-column:1 / -1}
     .ctrl-top{margin-bottom:clamp(5px, 1.1dvh, 10px)}
     .ctrl-top > label{font-size:12px}
-    .numbox input{width:64px; font-size:clamp(14px, 1.7dvh, 17px);
+    .numbox input{width:clamp(54px, 15vw, 64px);
+                  font-size:clamp(14px, 1.7dvh, 17px);
                   padding:3px 7px; border-radius:7px}
     .numbox span{font-size:11px}
 
@@ -268,6 +278,13 @@
     .note{display:block; margin-top:clamp(14px, 2dvh, 22px)}
   }
 
+  /* ---------- 很高屏手机：补回页脚公式与免责声明，填满版面 ---------- */
+  @media (max-width:640px) and (min-height:900px){
+    footer{display:block; margin-top:clamp(12px, 1.6dvh, 20px);
+           padding-top:clamp(9px, 1.2dvh, 14px);
+           font-size:10px; line-height:1.5}
+  }
+
   /* ---------- 超小屏手机（≤340px）：进一步收紧纵向节奏 ---------- */
   @media (max-width:340px){
     .page{padding-left:calc(10px + env(safe-area-inset-left, 0px));
@@ -292,7 +309,7 @@
           padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px))}
     header{margin-bottom:10px}
     .sub, .note, footer{display:none}
-    .controls{grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px;
+    .controls{grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px;
               margin-bottom:12px}
     .convert{margin-bottom:12px}
     .metrics{margin-bottom:12px}
@@ -317,7 +334,7 @@
 
 <header>
   <h1>数据标注计件薪酬计算器</h1>
-  <p class="sub">单价 × 产能 = 时薪　·　含兼职合规判定</p>
+  <p class="sub">单价 × 产能 × 通过率 = 时薪　·　含兼职合规判定</p>
 </header>
 
 <h2>核心测算</h2>
@@ -333,9 +350,16 @@
     <div>
       <div class="ctrl-top">
         <label for="c">产能</label>
-        <div class="numbox"><input type="number" id="cNum" min="5" max="1000" step="1" value="750" inputmode="numeric"><span>帧/小时</span></div>
+        <div class="numbox"><input type="number" id="cNum" min="5" max="1000" step="1" value="750" inputmode="numeric"><span><span class="lg">帧/小时</span><span class="sm">帧/时</span></span></div>
       </div>
       <input type="range" id="c" min="5" max="1000" step="1" value="750" aria-label="产能（帧/小时）">
+    </div>
+    <div>
+      <div class="ctrl-top">
+        <label for="q">通过率</label>
+        <div class="numbox"><input type="number" id="qNum" min="50" max="100" step="1" value="95" inputmode="numeric"><span>%</span></div>
+      </div>
+      <input type="range" id="q" min="50" max="100" step="1" value="95" aria-label="质检通过率（%）">
     </div>
   </div>
 
@@ -355,7 +379,7 @@
         <div class="numbox"><input type="number" id="hpdNum" min="1" max="16" step="0.5" value="8" inputmode="decimal"><span>小时</span></div>
       </div>
     </div>
-    <p class="convert-ft">单帧耗时约 <b id="spf">4.8 秒</b></p>
+    <p class="convert-ft">有效产能 <b id="effCap">712.5</b> 帧/小时（<span id="effCalc">750 × 95%</span>）　·　单帧耗时 <b id="spf">4.8 秒</b></p>
   </div>
 
   <div class="metrics">
@@ -383,49 +407,64 @@
 
   <div class="verdict" id="verdict"></div>
 
-  <p class="note">拖动滑块或直接输入数值。产能可用「帧/小时」「帧/分钟」「帧/天」任一口径填写，自动换算；「每天工作」决定日薪计入的小时数（月薪按 22 天估算）。合规下限参考 2026 年多数地区非全日制小时最低工资 21–25 元/小时；3D 标注兼职的行业合理区间为 30–50 元/小时。</p>
+  <p class="note"><span class="lg">产能可用「帧/小时」「帧/分钟」「帧/天」任一口径填写，自动换算；「每天工作」决定日薪计入的小时数（月薪按 22 天估算）。「通过率」指质检验收比例：有效产能 = 产能 × 通过率，时薪按有效产能结算。合规下限参考多数地区非全日制小时最低工资 21–25 元/小时；3D 标注兼职的行业合理区间为 30–50 元/小时。</span><span class="sm">产能可填「帧/小时」「帧/分钟」「帧/天」，自动换算。「通过率」为质检验收比例：有效产能 = 产能 × 通过率，时薪按有效产能结算。合规下限参考多数地区非全日制小时最低工资 21–25 元/小时。</span></p>
 </div>
 
 <footer>
-  测算公式：时薪 = 单价 × 产能；日薪 = 时薪 × 每天工时；月薪 = 日薪 × 22；帧/分钟 = 帧/小时 ÷ 60；每天产出 = 帧/小时 × 每天工时；单帧耗时 = 3600 ÷ 产能（帧/小时）。<br>
-  产能区间为行业公开数据与场景估算，实际须以试标实测为准。合规下限请以当地最新公布的非全日制小时最低工资标准为准。
+  <span class="lg">测算公式：有效产能 = 产能 × 通过率；时薪 = 单价 × 有效产能；日薪 = 时薪 × 每天工时；月薪 = 日薪 × 22；帧/分钟 = 帧/小时 ÷ 60；每天产出 = 帧/小时 × 每天工时；单帧耗时 = 3600 ÷ 产能（帧/小时）。单价按「元/合格帧」计。</span><span class="sm">有效产能 = 产能 × 通过率；时薪 = 单价 × 有效产能；日薪 = 时薪 × 工时；月薪 = 日薪 × 22。</span><br>
+  <span class="lg">产能与通过率区间为行业公开数据与场景估算，实际须以试标实测为准。合规下限请以当地最新公布的非全日制小时最低工资标准为准。</span><span class="sm">数据为行业估算，实际以试标实测与当地最新标准为准。</span>
 </footer>
 
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
-const pEl=$('p'), cEl=$('c'), pNum=$('pNum'), cNum=$('cNum');
+const pEl=$('p'), cEl=$('c'), qEl=$('q');
+const pNum=$('pNum'), cNum=$('cNum'), qNum=$('qNum');
 const cpmNum=$('cpmNum'), cpdNum=$('cpdNum'), hpdNum=$('hpdNum');
 
-const fmt = n => Math.round(n).toLocaleString('zh-CN');
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const round1 = v => Math.round(v * 10) / 10;
 const numStr = v => String(Math.round(v * 10) / 10);
 const cpmStr = v => v >= 1 ? numStr(v) : v.toFixed(2);
+/* 金额：保留至多两位小数，整数不带小数点（如 24.94 / 199.5 / 3,960） */
+const money = v => (Math.round(v * 100) / 100).toLocaleString('zh-CN', {maximumFractionDigits:2});
 
 const getHpd = () => clamp(parseFloat(hpdNum.value) || 8, 1, 16);
 
-function sync(from, to, min, max){
+// dec：保留的小数位（不传则不限制）；返回归一后的数值
+function sync(from, to, min, max, dec){
   const v = parseFloat(from.value);
   if(isNaN(v)) return;
-  to.value = clamp(v, min, max);
+  let x = clamp(v, min, max);
+  if(dec){
+    const f = Math.pow(10, dec);
+    x = Math.round(x * f) / f;
+  }
+  to.value = x;
+  return x;
 }
 
 function update(){
-  const p = clamp(parseFloat(pEl.value) || 0, 0.001, 4);
+  const p = clamp(parseFloat(pEl.value) || 0, 0.01, 4);
   const c = clamp(parseFloat(cEl.value) || 0, 1, 1000);
+  const q = clamp(parseFloat(qEl.value) || 0, 50, 100) / 100;   // 通过率
   const hpd = getHpd();
-  const h = p * c;                    // 折算时薪
+  const effCap = c * q;        // 有效产能（帧/小时）：产能 × 通过率
+  const hNom = p * c;          // 标称时薪（未计通过率）
+  const h = p * effCap;        // 折算时薪（按质检验收量结算）
 
-  $('h').textContent = h.toFixed(1);
+  $('h').textContent = money(h);
   $('hpdLabel').textContent = numStr(hpd);
-  $('d').textContent = fmt(h * hpd);
-  $('m').textContent = fmt(h * hpd * 22);
+  $('d').textContent = money(h * hpd);
+  $('m').textContent = money(h * hpd * 22);
 
   // 联动读数：用户正在输入的框不覆盖，避免打断输入
   if(document.activeElement !== cpmNum) cpmNum.value = cpmStr(c / 60);
   if(document.activeElement !== cpdNum) cpdNum.value = Math.round(c * hpd);
+
+  $('effCap').textContent = numStr(effCap);
+  $('effCalc').textContent = numStr(c) + ' × ' + numStr(q * 100) + '%';
 
   const spf = 3600 / c;
   $('spf').textContent = spf >= 120 ? round1(spf / 60).toFixed(1) + ' 分钟' : spf.toFixed(1) + ' 秒';
@@ -437,36 +476,49 @@ function update(){
   if(h < 21){
     txt = '低于 21 元/小时的兼职合规下限，存在法律风险。';
     color = '#E57373'; border = '#4a2a2a'; bg = '#2a1c1c';
-    txt += '　距合规下限还差 ' + (21 - h).toFixed(1) + ' 元/小时。';
+    txt += '　距合规下限还差 ' + money(21 - h) + ' 元/小时。';
   } else if(h < 30){
     txt = '刚过合规下限，但低于行业合理区间（30–50 元/小时），较难留住熟练标注员。';
     color = '#E5A64A'; border = '#4a3a22'; bg = '#2a2318';
-    txt += '　距行业下限还差 ' + (30 - h).toFixed(1) + ' 元/小时。';
+    txt += '　距行业下限还差 ' + money(30 - h) + ' 元/小时。';
   } else if(h <= 50){
     txt = '处于行业合理区间（30–50 元/小时），具备竞争力。';
     color = '#6FBF73'; border = '#2a4230'; bg = '#1c2a1e';
-    txt += '　距行业上限还有 ' + (50 - h).toFixed(1) + ' 元/小时空间。';
+    txt += '　距行业上限还有 ' + money(50 - h) + ' 元/小时空间。';
   } else {
     txt = '高于行业水平，招聘与留人优势明显。';
     color = '#6FBF73'; border = '#2a4230'; bg = '#1c2a1e';
+  }
+  if(q < 0.9995){
+    txt += '　未计通过率时 ' + money(hNom) + ' 元/小时。';
+  }
+  if(q < 0.8){
+    txt += '　通过率低于 80%，通常意味着标注规范不清或培训不足，建议先解决质量问题再谈单价。';
   }
   v.textContent = txt;
   v.style.color = color; v.style.borderColor = border; v.style.background = bg;
 }
 
 // 单价 / 产能：输入时同步到滑块；失焦时把越界值夹紧并回填
-function bindNum(numEl, rangeEl, min, max){
-  numEl.addEventListener('input', () => { sync(numEl, rangeEl, min, max); update(); });
-  numEl.addEventListener('change', () => {
-    numEl.value = clamp(parseFloat(numEl.value) || min, min, max);
-    rangeEl.value = numEl.value;
-    update();
-  });
+function bindNum(numEl, rangeEl, min, max, dec){
+  function norm(){
+    let v = clamp(parseFloat(numEl.value) || min, min, max);
+    if(dec){
+      const f = Math.pow(10, dec);
+      v = Math.round(v * f) / f;
+    }
+    numEl.value = v;
+    rangeEl.value = v;
+  }
+  numEl.addEventListener('input', () => { sync(numEl, rangeEl, min, max, dec); update(); });
+  numEl.addEventListener('change', () => { norm(); update(); });
 }
-bindNum(pNum, pEl, 0.01, 4);
+bindNum(pNum, pEl, 0.01, 4, 2);   // 单价：两位小数
 bindNum(cNum, cEl, 5, 1000);
+bindNum(qNum, qEl, 50, 100);
 pEl.addEventListener('input', () => { pNum.value = pEl.value; update(); });
 cEl.addEventListener('input', () => { cNum.value = cEl.value; update(); });
+qEl.addEventListener('input', () => { qNum.value = qEl.value; update(); });
 
 // 每分钟产能 → 帧/小时
 cpmNum.addEventListener('input', () => {
