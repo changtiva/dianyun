@@ -2,75 +2,174 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#141518">
 <title>数据标注计件薪酬计算器</title>
 <style>
+  /* ============================================================
+     1. 设计令牌（Design Tokens）
+     ------------------------------------------------------------
+     字号 / 间距 / 圆角均用 clamp() 做流体化处理，
+     随视口宽度在区间内平滑缩放，避免断点处突变。
+     ============================================================ */
   :root{
+    /* 色彩 */
     --bg:#141518; --panel:#1c1e23; --panel2:#23262c; --line:#2e323a;
-    --ink:#e9eaed; --ink2:#a8adb7; --ink3:#767c88;
+    --ink:#e9eaed; --ink2:#a8adb7; --ink3:#8b919c;   /* ink3 提亮 → 对比度 ≈5.2:1，满足 WCAG AA */
     --accent:#6EA8FE; --accent-dim:#2b3a55;
     --good:#6FBF73; --good-bg:#1c2a1e;
     --warn:#E5A64A; --warn-bg:#2a2318;
     --bad:#E57373;  --bad-bg:#2a1c1c;
+
+    /* 流体字号 */
+    --fs-h1:clamp(19px, 15.5px + 1.05vw, 26px);
+    --fs-h2:clamp(13.5px, 12.4px + 0.42vw, 16px);
+    --fs-body:clamp(13px, 12.5px + 0.2vw, 14.5px);
+    --fs-metric:clamp(17px, 13px + 1.9vw, 30px);
+    --fs-num:clamp(13.5px, 12.6px + 0.28vw, 15px);
+    --fs-small:clamp(11px, 10.6px + 0.18vw, 12.5px);
+
+    /* 流体间距 */
+    --pad-x:clamp(12px, 4px + 3.6vw, 40px);
+    --pad-y:clamp(14px, 8px + 2.4vw, 46px);
+    --gap:clamp(8px, 4px + 1.1vw, 22px);
+    --gap-sm:clamp(6px, 4px + 0.6vw, 14px);
+    --panel-pad:clamp(13px, 8px + 1.3vw, 24px);
+    --radius:clamp(10px, 8px + 0.7vw, 14px);
+    --radius-sm:clamp(7px, 6px + 0.4vw, 10px);
+
+    /* 交互尺寸 */
+    --range-h:clamp(24px, 20px + 1vw, 28px);  /* 滑块整轨可点击高度 */
+    --thumb:clamp(18px, 16px + 0.9vw, 21px);
   }
+
   *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}  /* 阻止横屏时 iOS 自动放大字号 */
+
   body{
     margin:0; background:var(--bg); color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    font-size:14px; line-height:1.65; -webkit-font-smoothing:antialiased;
+    font-size:var(--fs-body); line-height:1.6; -webkit-font-smoothing:antialiased;
   }
-  .page{max-width:900px; margin:0 auto; padding:44px 40px 72px}
-  header{margin-bottom:32px}
-  h1{font-size:24px; font-weight:600; margin:0 0 8px; letter-spacing:-.3px}
-  .sub{color:var(--ink3); font-size:13px; margin:0}
-  h2{font-size:15px; font-weight:600; margin:0 0 14px; color:var(--ink);
+
+  /* 容器：最大宽度 + 流体内边距 + 刘海屏安全区（横竖屏均不贴边） */
+  .page{
+    width:100%; max-width:960px; margin:0 auto;
+    padding:
+      calc(var(--pad-y) + env(safe-area-inset-top, 0px))
+      calc(var(--pad-x) + env(safe-area-inset-right, 0px))
+      calc(var(--pad-y) + env(safe-area-inset-bottom, 0px))
+      calc(var(--pad-x) + env(safe-area-inset-left, 0px));
+  }
+
+  header{margin-bottom:clamp(16px, 10px + 1.4vw, 32px)}
+  h1{font-size:var(--fs-h1); font-weight:600; margin:0 0 8px;
+     letter-spacing:-.3px; line-height:1.25; text-wrap:balance}
+  .sub{color:var(--ink3); font-size:var(--fs-small); margin:0}
+
+  h2{font-size:var(--fs-h2); font-weight:600; margin:0 0 14px; color:var(--ink);
      display:flex; align-items:center; gap:10px}
-  h2::before{content:""; width:3px; height:15px; border-radius:2px; background:var(--accent)}
+  h2::before{content:""; width:3px; height:1em; border-radius:2px;
+             background:var(--accent); flex:0 0 auto}
   p{margin:0 0 12px; color:var(--ink2)}
-  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:24px}
-  .controls{display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-bottom:22px}
-  .ctrl-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
-  .ctrl-top > label{font-size:13px; color:var(--ink2)}
-  .numbox{display:flex; align-items:baseline; gap:5px}
-  .numbox input{
-    width:78px; text-align:right; font-size:15px; font-weight:600;
-    background:var(--panel2); border:1px solid var(--line); border-radius:8px;
-    color:var(--ink); padding:4px 9px; font-variant-numeric:tabular-nums;
-    font-family:inherit;
+
+  .panel{background:var(--panel); border:1px solid var(--line);
+         border-radius:var(--radius); padding:var(--panel-pad)}
+
+  /* ---------- 核心测算：两个滑块 ---------- */
+  .controls{
+    display:grid; grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:clamp(14px, 8px + 2vw, 26px);
+    margin-bottom:clamp(12px, 8px + 1.2vw, 22px);
   }
-  .numbox input:focus{outline:none; border-color:var(--accent)}
-  .numbox span{font-size:12px; color:var(--ink3)}
+  .controls > div{min-width:0}
+  .ctrl-top{display:flex; justify-content:space-between; align-items:center;
+            gap:10px; margin-bottom:8px; flex-wrap:wrap}
+  .ctrl-top > label{font-size:var(--fs-small); color:var(--ink2)}
+
+  .numbox{display:flex; align-items:center; gap:5px; min-width:0}
+  .numbox input{
+    width:clamp(64px, 56px + 2.2vw, 84px); text-align:right;
+    font-size:var(--fs-num); font-weight:600;
+    background:var(--panel2); border:1px solid var(--line);
+    border-radius:var(--radius-sm); color:var(--ink); padding:4px 9px;
+    font-variant-numeric:tabular-nums; font-family:inherit;
+  }
+  .numbox input:focus{outline:none}
+  .numbox input:focus-visible{outline:2px solid var(--accent);
+    outline-offset:1px; border-color:var(--accent)}
+  .numbox span{font-size:var(--fs-small); color:var(--ink3); white-space:nowrap}
+
+  /* 滑块：轨道加高 → 触屏易点；拇指尺寸随视口流体缩放 */
   input[type=range]{
-    width:100%; -webkit-appearance:none; appearance:none; height:4px; border-radius:2px;
-    background:var(--line); outline:none; cursor:pointer;
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:var(--range-h); background:transparent;
+    cursor:pointer; margin:0; display:block;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:5px; border-radius:3px; background:var(--line);
   }
   input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none; width:17px; height:17px; border-radius:50%;
-    background:var(--accent); border:3px solid var(--panel); cursor:pointer;
+    -webkit-appearance:none; width:var(--thumb); height:var(--thumb);
+    border-radius:50%; background:var(--accent); border:3px solid var(--panel);
+    cursor:pointer; margin-top:calc((5px - var(--thumb)) / 2);
+    box-shadow:0 1px 4px rgba(0,0,0,.45);
   }
+  input[type=range]::-moz-range-track{height:5px; border-radius:3px; background:var(--line)}
   input[type=range]::-moz-range-thumb{
-    width:14px; height:14px; border-radius:50%; background:var(--accent);
-    border:3px solid var(--panel); cursor:pointer;
+    width:var(--thumb); height:var(--thumb); border-radius:50%;
+    background:var(--accent); border:3px solid var(--panel);
+    cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.45);
   }
-  .convert{border-top:1px solid var(--line); padding-top:16px; margin-bottom:24px}
-  .convert-hd{font-size:12.5px; color:var(--ink3); margin:0 0 12px; display:flex; align-items:center; gap:9px}
-  .convert-hd em{font-style:normal; font-size:11.5px; opacity:.72}
-  .convert-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+  input[type=range]:focus{outline:none}
+  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 5px var(--accent-dim)}
+  input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 5px var(--accent-dim)}
+
+  /* 隐藏数字框自带的上下微调箭头：
+     既腾出横向空间（窄屏不再截断数值），也去掉过小的点击目标 */
+  input[type=number]{-moz-appearance:textfield; appearance:textfield}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; appearance:none; margin:0}
+
+  /* ---------- 产能换算与工时 ---------- */
+  .convert{border-top:1px solid var(--line);
+           padding-top:clamp(10px, 8px + 1vw, 16px);
+           margin-bottom:clamp(12px, 8px + 1.2vw, 24px)}
+  .convert-hd{font-size:var(--fs-small); color:var(--ink3); margin:0 0 12px;
+              display:flex; align-items:center; gap:9px; flex-wrap:wrap}
+  .convert-hd em{font-style:normal; font-size:.92em; opacity:.72}
+  .convert-grid{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
+                gap:var(--gap-sm)}
   .fld{
-    background:var(--panel2); border-radius:10px; padding:12px 14px;
-    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    background:var(--panel2); border-radius:var(--radius-sm);
+    padding:clamp(8px, 6px + 0.5vw, 12px) clamp(9px, 7px + 0.6vw, 14px);
+    display:flex; justify-content:space-between; align-items:center;
+    gap:8px; flex-wrap:wrap; min-width:0;   /* 空间不足时自动换行，绝不溢出 */
   }
-  .fld > label{font-size:12px; color:var(--ink3); white-space:nowrap}
-  .fld .numbox input{width:72px; font-size:14px; padding:3px 8px}
-  .fld .numbox span{font-size:11.5px; white-space:nowrap}
-  .convert-ft{font-size:12px; color:var(--ink3); margin:12px 0 0; text-align:right}
+  .fld > label{font-size:var(--fs-small); color:var(--ink3); white-space:nowrap}
+  .fld .numbox{flex:0 1 auto; min-width:0}
+  .fld .numbox input{width:clamp(58px, 50px + 2vw, 74px);
+                     font-size:var(--fs-num); padding:3px 8px}
+  .fld .numbox span{font-size:.94em; white-space:nowrap}
+  .convert-ft{font-size:var(--fs-small); color:var(--ink3); margin:12px 0 0; text-align:right}
   .convert-ft b{color:var(--ink2); font-variant-numeric:tabular-nums}
-  .sm{display:none}
-  .metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:20px}
-  .metric{background:var(--panel2); border-radius:10px; padding:15px 17px}
-  .metric .k{font-size:12px; color:var(--ink3); margin-bottom:5px}
-  .metric .v{font-size:26px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.2}
-  .metric .u{font-size:13px; color:var(--ink3); font-weight:400; margin-left:2px}
+  .sm{display:none}   /* 窄屏用的短标签，默认隐藏 */
+
+  /* ---------- 指标卡 ---------- */
+  .metrics{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
+           gap:var(--gap-sm); margin-bottom:clamp(12px, 8px + 1.2vw, 20px)}
+  .metric{background:var(--panel2); border-radius:var(--radius-sm);
+          padding:clamp(9px, 7px + 0.8vw, 15px) clamp(10px, 8px + 1vw, 17px);
+          min-width:0; overflow:hidden}
+  .metric .k{font-size:var(--fs-small); color:var(--ink3); margin-bottom:5px;
+             line-height:1.35; overflow-wrap:break-word}
+  .metric .v{font-size:var(--fs-metric); font-weight:600; line-height:1.2;
+             font-variant-numeric:tabular-nums; letter-spacing:-.4px; white-space:nowrap}
+  .metric .u{font-size:clamp(11px, 10px + 0.4vw, 13px); color:var(--ink3);
+             font-weight:400; margin-left:2px}
+
+  /* ---------- 合规标尺 ---------- */
   .gauge{margin:0 0 4px}
   .gauge-bar{
     position:relative; height:10px; border-radius:5px;
@@ -87,56 +186,129 @@
     transition:left .12s ease;
   }
   .gauge-scale{position:relative; height:17px; margin-top:7px}
-  .gauge-scale span{
-    position:absolute; font-size:11px; color:var(--ink3);
-    font-variant-numeric:tabular-nums;
-  }
-  .gauge-note{display:flex; flex-wrap:wrap; gap:14px; margin:0 0 18px; font-size:11.5px; color:var(--ink3)}
+  .gauge-scale span{position:absolute; font-size:var(--fs-small); color:var(--ink3);
+                    font-variant-numeric:tabular-nums}
+  .gauge-note{display:flex; flex-wrap:wrap; gap:14px; margin:0 0 18px;
+              font-size:var(--fs-small); color:var(--ink3)}
   .gauge-note span{display:flex; align-items:center; gap:5px}
-  .gauge-note i{width:9px; height:9px; border-radius:3px; display:inline-block}
-  .verdict{font-size:13px; line-height:1.6; padding:13px 16px; border-radius:10px; border:1px solid var(--line)}
-  .note{font-size:12.5px; color:var(--ink3); margin:18px 0 0; line-height:1.65}
-  footer{margin-top:48px; padding-top:18px; border-top:1px solid var(--line); font-size:12px; color:var(--ink3); line-height:1.7}
-  /* 手机：单屏紧凑版式 */
+  .gauge-note i{width:9px; height:9px; border-radius:3px; display:inline-block; flex:0 0 auto}
+
+  .verdict{font-size:var(--fs-body); line-height:1.6; padding:13px 16px;
+           border-radius:var(--radius-sm); border:1px solid var(--line);
+           overflow-wrap:break-word}
+  .note{font-size:var(--fs-small); color:var(--ink3); margin:18px 0 0; line-height:1.65}
+  footer{margin-top:clamp(28px, 20px + 3vw, 48px); padding-top:18px;
+         border-top:1px solid var(--line); font-size:var(--fs-small);
+         color:var(--ink3); line-height:1.7}
+
+  /* ============================================================
+     2. 断点策略
+     ------------------------------------------------------------
+     小屏手机 ≤360 · 手机 ≤640 · 平板/笔记本 641–1023（走默认流体样式）
+     · 桌面 ≥1024（走默认流体样式） · 手机横屏（按高度压缩）
+     ============================================================ */
+
+  /* ---------- 手机（≤640px）：紧凑版式 ----------
+     纵向尺寸全部改用 dvh 流体化：矮屏保持紧凑（不溢出），
+     高屏自动放大间距与字号，避免底部出现大片空白。 */
   @media (max-width:640px){
-    .page{padding:14px 12px 16px}
-    header{margin-bottom:11px}
-    h1{font-size:18px; margin:0}
-    .sub{display:none}
+    .page{padding:clamp(14px, 2.4dvh, 24px) 12px clamp(16px, 2.6dvh, 26px)}
+    header{margin-bottom:clamp(11px, 1.9dvh, 20px)}
+    h1{font-size:clamp(17px, 16px + 0.6vw, 19px); margin:0}
     h2{font-size:13px; margin:0 0 9px}
     h2::before{height:13px}
-    .panel{padding:13px; border-radius:12px}
-    .controls{gap:14px; margin-bottom:14px}
-    .ctrl-top{margin-bottom:6px}
+    .panel{padding:clamp(13px, 2.3dvh, 22px); border-radius:12px}
+
+    /* 滑块改为上下堆叠，获得更长的拖动行程 */
+    .controls{grid-template-columns:1fr; gap:clamp(11px, 2.1dvh, 20px);
+              margin-bottom:clamp(13px, 2.1dvh, 20px)}
+    .ctrl-top{margin-bottom:clamp(5px, 1.1dvh, 10px)}
     .ctrl-top > label{font-size:12px}
-    .numbox input{width:64px; font-size:14px; padding:3px 7px; border-radius:7px}
+    .numbox input{width:64px; font-size:clamp(14px, 1.7dvh, 17px);
+                  padding:3px 7px; border-radius:7px}
     .numbox span{font-size:11px}
-    input[type=range]::-webkit-slider-thumb{width:15px; height:15px}
-    input[type=range]::-moz-range-thumb{width:12px; height:12px}
-    .convert{padding-top:11px; margin-bottom:12px}
-    .convert-hd{font-size:11px; margin-bottom:8px}
+
+    .convert{padding-top:clamp(10px, 1.7dvh, 16px);
+             margin-bottom:clamp(11px, 1.7dvh, 16px)}
+    .convert-hd{font-size:11px; margin-bottom:clamp(8px, 1.3dvh, 13px)}
     .convert-hd em{display:none}
-    .convert-grid{grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px}
-    .fld{flex-direction:column; align-items:stretch; gap:3px; padding:7px 8px; border-radius:8px}
+    .convert-grid{grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px}
+    /* 三个字段转纵向排布，窄列也不挤压 */
+    .fld{flex-direction:column; align-items:stretch; gap:3px; flex-wrap:nowrap;
+         padding:clamp(7px, 1.1dvh, 12px) clamp(8px, 1.3dvh, 13px); border-radius:8px}
     .fld > label{font-size:10px}
-    .lg{display:none}
-    .sm{display:inline}
-    .fld .numbox{justify-content:space-between; gap:3px}
-    .fld .numbox input{flex:1 1 auto; width:auto; min-width:0; font-size:12.5px; padding:2px 4px; border-radius:6px}
+    .lg{display:none} .sm{display:inline}
+    .fld .numbox{justify-content:space-between; gap:3px; flex-wrap:nowrap}
+    .fld .numbox input{flex:1 1 auto; width:auto; min-width:0;
+                       font-size:12.5px; padding:2px 4px; border-radius:6px}
     .fld .numbox span{font-size:9px}
-    .convert-ft{font-size:10.5px; margin-top:7px}
-    .metrics{gap:6px; margin-bottom:12px}
-    .metric{padding:8px 9px; border-radius:8px}
+    .convert-ft{font-size:10.5px; margin-top:clamp(7px, 1.2dvh, 12px)}
+
+    .metrics{gap:6px; margin-bottom:clamp(11px, 1.7dvh, 16px)}
+    .metric{padding:clamp(8px, 1.4dvh, 14px) clamp(9px, 1.5dvh, 15px); border-radius:8px}
     .metric .k{font-size:10px; margin-bottom:2px}
-    .metric .v{font-size:18px}
+    .metric .v{font-size:clamp(16px, 2.6dvh, 24px)}
     .metric .u{font-size:10px; margin-left:1px}
-    .gauge-note{gap:8px; margin-bottom:11px; font-size:9.5px}
+
+    .gauge-note{gap:8px; margin-bottom:clamp(10px, 1.6dvh, 15px); font-size:9.5px}
     .gauge-note i{width:7px; height:7px; border-radius:2px}
-    .gauge-scale{height:13px; margin-top:4px}
+    .gauge-scale{height:13px; margin-top:clamp(4px, 0.9dvh, 9px)}
     .gauge-scale span{font-size:9.5px}
-    .verdict{font-size:11.5px; padding:8px 10px; line-height:1.5; border-radius:8px}
-    .note{display:none}
-    footer{display:none}
+    .verdict{font-size:clamp(11.5px, 1.6dvh, 14px); line-height:1.5; border-radius:8px;
+             padding:clamp(8px, 1.4dvh, 14px) clamp(10px, 1.6dvh, 16px)}
+
+    /* 短屏先隐藏说明文字保证一屏内显示 */
+    .sub, .note, footer{display:none}
+    footer{margin-top:24px}
+  }
+
+  /* ---------- 高屏手机：恢复副标题与说明文字，让版面充实不空 ---------- */
+  @media (max-width:640px) and (min-height:700px){
+    .sub{display:block}
+    .note{display:block; margin-top:clamp(14px, 2dvh, 22px)}
+  }
+
+  /* ---------- 超小屏手机（≤340px）：进一步收紧纵向节奏 ---------- */
+  @media (max-width:340px){
+    .page{padding-left:calc(10px + env(safe-area-inset-left, 0px));
+          padding-right:calc(10px + env(safe-area-inset-right, 0px))}
+    header{margin-bottom:7px}
+    .panel{padding:11px; border-radius:10px}
+    .controls{gap:10px; margin-bottom:11px}
+    .ctrl-top{margin-bottom:4px}
+    .convert{padding-top:9px; margin-bottom:9px}
+    .metrics{gap:5px; margin-bottom:9px}
+    .metric{padding:7px 8px}
+    .metric .v{font-size:16px; letter-spacing:-.8px}
+    .metric .u{font-size:9px; margin-left:1px}
+    .gauge-note{gap:6px; margin-bottom:9px; font-size:9px}
+    .gauge-scale{height:12px; margin-top:3px}
+    .verdict{font-size:11px; padding:7px 9px}
+  }
+
+  /* ---------- 手机横屏 / 矮视口：压缩纵向节奏，恢复双列 ---------- */
+  @media (max-height:560px) and (orientation:landscape){
+    .page{padding-top:calc(10px + env(safe-area-inset-top, 0px));
+          padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px))}
+    header{margin-bottom:10px}
+    .sub, .note, footer{display:none}
+    .controls{grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px;
+              margin-bottom:12px}
+    .convert{margin-bottom:12px}
+    .metrics{margin-bottom:12px}
+  }
+
+  /* ---------- 触屏设备：放大交互热区 ----------
+     仅在纵向空间充裕时生效，避免与"小屏单屏显示"目标冲突 */
+  @media (pointer:coarse) and (min-height:600px){
+    .controls .numbox input{min-height:36px; padding:5px 10px}
+    .controls input[type=range]{height:28px}
+    .convert-grid .numbox input{min-height:28px}
+  }
+
+  /* ---------- 无障碍：尊重"减少动态效果"偏好 ---------- */
+  @media (prefers-reduced-motion:reduce){
+    *{transition-duration:.01ms !important; animation-duration:.01ms !important}
   }
 </style>
 </head>
@@ -154,16 +326,16 @@
     <div>
       <div class="ctrl-top">
         <label for="p">单价</label>
-        <div class="numbox"><input type="number" id="pNum" min="0.01" max="4" step="0.01" value="0.03"><span>元/帧</span></div>
+        <div class="numbox"><input type="number" id="pNum" min="0.01" max="4" step="0.01" value="0.03" inputmode="decimal"><span>元/帧</span></div>
       </div>
-      <input type="range" id="p" min="0.01" max="4" step="0.01" value="0.03">
+      <input type="range" id="p" min="0.01" max="4" step="0.01" value="0.03" aria-label="单价（元/帧）">
     </div>
     <div>
       <div class="ctrl-top">
         <label for="c">产能</label>
-        <div class="numbox"><input type="number" id="cNum" min="5" max="1000" step="1" value="750"><span>帧/小时</span></div>
+        <div class="numbox"><input type="number" id="cNum" min="5" max="1000" step="1" value="750" inputmode="numeric"><span>帧/小时</span></div>
       </div>
-      <input type="range" id="c" min="5" max="1000" step="1" value="750">
+      <input type="range" id="c" min="5" max="1000" step="1" value="750" aria-label="产能（帧/小时）">
     </div>
   </div>
 
@@ -172,15 +344,15 @@
     <div class="convert-grid">
       <div class="fld">
         <label for="cpmNum"><span class="lg">每分钟产能</span><span class="sm">每分钟</span></label>
-        <div class="numbox"><input type="number" id="cpmNum" min="0.1" max="16.7" step="0.1" value="12.5"><span><span class="lg">帧/分钟</span><span class="sm">帧/分</span></span></div>
+        <div class="numbox"><input type="number" id="cpmNum" min="0.1" max="16.7" step="0.1" value="12.5" inputmode="decimal"><span><span class="lg">帧/分钟</span><span class="sm">帧/分</span></span></div>
       </div>
       <div class="fld">
         <label for="cpdNum">每天产出</label>
-        <div class="numbox"><input type="number" id="cpdNum" min="5" max="16000" step="10" value="6000"><span>帧/天</span></div>
+        <div class="numbox"><input type="number" id="cpdNum" min="5" max="16000" step="10" value="6000" inputmode="numeric"><span>帧/天</span></div>
       </div>
       <div class="fld">
         <label for="hpdNum">每天工作</label>
-        <div class="numbox"><input type="number" id="hpdNum" min="1" max="16" step="0.5" value="8"><span>小时</span></div>
+        <div class="numbox"><input type="number" id="hpdNum" min="1" max="16" step="0.5" value="8" inputmode="decimal"><span>小时</span></div>
       </div>
     </div>
     <p class="convert-ft">单帧耗时约 <b id="spf">4.8 秒</b></p>
