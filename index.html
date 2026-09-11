@@ -65,6 +65,7 @@
   .fld .numbox span{font-size:11.5px; white-space:nowrap}
   .convert-ft{font-size:12px; color:var(--ink3); margin:12px 0 0; text-align:right}
   .convert-ft b{color:var(--ink2); font-variant-numeric:tabular-nums}
+  .sm{display:none}
   .metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:20px}
   .metric{background:var(--panel2); border-radius:10px; padding:15px 17px}
   .metric .k{font-size:12px; color:var(--ink3); margin-bottom:5px}
@@ -96,10 +97,46 @@
   .verdict{font-size:13px; line-height:1.6; padding:13px 16px; border-radius:10px; border:1px solid var(--line)}
   .note{font-size:12.5px; color:var(--ink3); margin:18px 0 0; line-height:1.65}
   footer{margin-top:48px; padding-top:18px; border-top:1px solid var(--line); font-size:12px; color:var(--ink3); line-height:1.7}
-  @media (max-width:700px){
-    .page{padding:32px 22px 56px}
-    .controls,.convert-grid{grid-template-columns:1fr}
-    .metrics{grid-template-columns:1fr}
+  /* 手机：单屏紧凑版式 */
+  @media (max-width:640px){
+    .page{padding:14px 12px 16px}
+    header{margin-bottom:11px}
+    h1{font-size:18px; margin:0}
+    .sub{display:none}
+    h2{font-size:13px; margin:0 0 9px}
+    h2::before{height:13px}
+    .panel{padding:13px; border-radius:12px}
+    .controls{gap:14px; margin-bottom:14px}
+    .ctrl-top{margin-bottom:6px}
+    .ctrl-top > label{font-size:12px}
+    .numbox input{width:64px; font-size:14px; padding:3px 7px; border-radius:7px}
+    .numbox span{font-size:11px}
+    input[type=range]::-webkit-slider-thumb{width:15px; height:15px}
+    input[type=range]::-moz-range-thumb{width:12px; height:12px}
+    .convert{padding-top:11px; margin-bottom:12px}
+    .convert-hd{font-size:11px; margin-bottom:8px}
+    .convert-hd em{display:none}
+    .convert-grid{grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px}
+    .fld{flex-direction:column; align-items:stretch; gap:3px; padding:7px 8px; border-radius:8px}
+    .fld > label{font-size:10px}
+    .lg{display:none}
+    .sm{display:inline}
+    .fld .numbox{justify-content:space-between; gap:3px}
+    .fld .numbox input{flex:1 1 auto; width:auto; min-width:0; font-size:12.5px; padding:2px 4px; border-radius:6px}
+    .fld .numbox span{font-size:9px}
+    .convert-ft{font-size:10.5px; margin-top:7px}
+    .metrics{gap:6px; margin-bottom:12px}
+    .metric{padding:8px 9px; border-radius:8px}
+    .metric .k{font-size:10px; margin-bottom:2px}
+    .metric .v{font-size:18px}
+    .metric .u{font-size:10px; margin-left:1px}
+    .gauge-note{gap:8px; margin-bottom:11px; font-size:9.5px}
+    .gauge-note i{width:7px; height:7px; border-radius:2px}
+    .gauge-scale{height:13px; margin-top:4px}
+    .gauge-scale span{font-size:9.5px}
+    .verdict{font-size:11.5px; padding:8px 10px; line-height:1.5; border-radius:8px}
+    .note{display:none}
+    footer{display:none}
   }
 </style>
 </head>
@@ -134,8 +171,8 @@
     <div class="convert-hd">产能换算与工时<em>任填其一，自动联动</em></div>
     <div class="convert-grid">
       <div class="fld">
-        <label for="cpmNum">每分钟产能</label>
-        <div class="numbox"><input type="number" id="cpmNum" min="0.1" max="16.7" step="0.1" value="12.5"><span>帧/分钟</span></div>
+        <label for="cpmNum"><span class="lg">每分钟产能</span><span class="sm">每分钟</span></label>
+        <div class="numbox"><input type="number" id="cpmNum" min="0.1" max="16.7" step="0.1" value="12.5"><span><span class="lg">帧/分钟</span><span class="sm">帧/分</span></span></div>
       </div>
       <div class="fld">
         <label for="cpdNum">每天产出</label>
