@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据标注薪酬测算器</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --ink2:#4a4a4a; --ink3:#7a7a7a;
+    --line:#e6e6e6; --bg:#ffffff; --soft:#f6f7f9;
+    --blue:#185FA5; --blue-l:#E6F1FB; --red:#A32D2D; --red-l:#FCEBEB;
+    --green:#3B6D11; --green-l:#EAF3DE; --amber:#854F0B; --amber-l:#FAEEDA;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:#f0f1f4; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:14px; line-height:1.7;}
+  .page{max-width:880px; margin:0 auto; background:var(--bg); padding:56px 64px 72px;}
+  header{border-bottom:2px solid var(--ink); padding-bottom:20px; margin-bottom:32px}
+  h1{font-size:25px; font-weight:600; margin:0 0 8px; letter-spacing:-.3px}
+  .sub{color:var(--ink3); font-size:13px; margin:0}
+  h2{font-size:17px; font-weight:600; margin:40px 0 14px; padding-left:12px; border-left:3px solid var(--blue)}
+  p{margin:0 0 12px}
+  ul{margin:0 0 12px; padding-left:22px}
+  li{margin-bottom:6px}
+  table{width:100%; border-collapse:collapse; margin:14px 0 20px; font-size:13px}
+  th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top}
+  th{background:var(--soft); font-weight:600}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+  tr.hi td{background:#FFF9EC}
+  .callout{border-radius:10px; padding:16px 20px; margin:18px 0; border:1px solid}
+  .callout.red{background:var(--red-l); border-color:#f0b9b9}
+  .callout.blue{background:var(--blue-l); border-color:#b5d4f4}
+  .callout.green{background:var(--green-l); border-color:#c0dd97}
+  .callout.amber{background:var(--amber-l); border-color:#efc98a}
+  .callout p:last-child{margin-bottom:0}
+  .callout .tag{display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:5px; margin-bottom:8px}
+  .red .tag{background:#f7c1c1; color:var(--red)}
+  .blue .tag{background:#b5d4f4; color:var(--blue)}
+  .green .tag{background:#c0dd97; color:var(--green)}
+  .amber .tag{background:#fac775; color:var(--amber)}
+  .calc{background:var(--soft); border-radius:12px; padding:22px 24px; margin:20px 0 24px}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:20px}
+  .field label{display:block; font-size:13px; color:var(--ink3); margin-bottom:8px}
+  .field .val{font-size:15px; font-weight:600; font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%; accent-color:var(--blue)}
+  .metrics{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px}
+  .metric{background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px}
+  .metric .k{font-size:12px; color:var(--ink3); margin-bottom:4px}
+  .metric .v{font-size:24px; font-weight:600; font-variant-numeric:tabular-nums}
+  .metric .u{font-size:13px; color:var(--ink3); font-weight:400}
+  #verdict{font-size:13px; padding:12px 14px; border-radius:8px; background:#fff; border:1px solid var(--line)}
+  .presets{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px}
+  .presets button{font-size:12px; padding:5px 12px; border-radius:999px; border:1px solid var(--line); background:#fff; cursor:pointer; color:var(--ink2)}
+  .presets button:hover{border-color:var(--blue); color:var(--blue)}
+  footer{margin-top:48px; padding-top:18px; border-top:1px solid var(--line); font-size:12px; color:var(--ink3)}
+  @media print{body{background:#fff} .page{padding:0; max-width:none}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>数据标注薪酬测算器</h1>
+  <p class="sub">按件计酬 · 单价 × 产能 = 时薪　|　2026 年 9 月</p>
+</header>
+
+<h2>一、测算器</h2>
+<p>拖动滑块调整「单价」与「产能」，实时查看折算时薪、日薪与月薪。默认值为「4 分钟 50 帧 + 0.03 元/帧」的口径。</p>
+
+<div class="calc">
+  <div class="presets">
+    <button data-p="0.03" data-c="750">4 分钟 50 帧 · 0.03 元</button>
+    <button data-p="0.03" data-c="400">帧级任务 · 400 帧/h</button>
+    <button data-p="0.03" data-c="30">简单 3D 拉框 · 30 帧/h</button>
+    <button data-p="0.03" data-c="12">框选 + 分割 · 12 帧/h</button>
+    <button data-p="3.5" data-c="12">建议价 · 3.5 元/帧</button>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="p">单价（元/帧）</label>
+      <div class="val"><span id="pv">0.03</span> 元/帧</div>
+      <input type="range" id="p" min="0.01" max="4" step="0.01" value="0.03">
+    </div>
+    <div class="field">
+      <label for="c">产能（帧/小时）</label>
+      <div class="val"><span id="cv">750</span> 帧/小时</div>
+      <input type="range" id="c" min="5" max="1000" step="5" value="750">
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="k">折算时薪</div><div class="v"><span id="h">22.5</span> <span class="u">元</span></div></div>
+    <div class="metric"><div class="k">日薪（8 小时）</div><div class="v"><span id="d">180</span> <span class="u">元</span></div></div>
+    <div class="metric"><div class="k">月薪（22 天）</div><div class="v"><span id="m">3,960</span> <span class="u">元</span></div></div>
+  </div>
+
+  <div id="verdict"></div>
+</div>
+
+<h2>二、产能敏感性对照</h2>
+<p>同样 0.03 元/帧，产能不同，收入差几十倍。下表左侧为不同任务的真实产能区间。</p>
+
+<table>
+  <thead><tr><th>产能（帧/小时）</th><th>对应任务</th><th class="num">0.03 元/帧 时薪</th><th class="num">达 25 元/小时所需单价</th></tr></thead>
+  <tbody>
+    <tr class="hi"><td class="num">750</td><td>4 分钟 50 帧（视频口径）</td><td class="num">22.5 元</td><td class="num">0.033 元</td></tr>
+    <tr><td class="num">400</td><td>帧级分类 / 质量初筛</td><td class="num">12.0 元</td><td class="num">0.063 元</td></tr>
+    <tr><td class="num">200</td><td>极简单帧级确认</td><td class="num">6.0 元</td><td class="num">0.125 元</td></tr>
+    <tr><td class="num">100</td><td>—</td><td class="num">3.0 元</td><td class="num">0.25 元</td></tr>
+    <tr><td class="num">30</td><td>简单 3D 拉框（稀疏场景）</td><td class="num">0.9 元</td><td class="num">0.83 元</td></tr>
+    <tr><td class="num">12</td><td>框选 + 点云分割（本项目）</td><td class="num">0.36 元</td><td class="num">2.08 元</td></tr>
+  </tbody>
+</table>
+
+<div class="callout red">
+  <span class="tag">这张表说明了什么</span>
+  <p>「4 分钟 50 帧」这个口径算出来的 22.5 元/小时，**只在产能真有 750 帧/小时时才成立**。而 750 帧/小时 = 每帧 4.8 秒——这只可能出现在「帧级快速确认」（看一眼、点一下）的场景里。</p>
+  <p style="margin-bottom:0">如果实际是**逐帧拉框 + 分割**，真实产能约 12 帧/小时，同样 0.03 元/帧 的时薪只有 <strong>0.36 元</strong>，差 60 倍。<strong>所以定价前必须先确定任务类型和真实产能。</strong></p>
+</div>
+
+<h2>三、按「4 分钟 50 帧」口径的完整结论</h2>
+<div class="callout amber">
+  <span class="tag">结论</span>
+  <p>在 750 帧/小时 的前提下，0.03 元/帧 对应：</p>
+  <ul style="margin-bottom:8px">
+    <li>时薪 <strong>22.5 元</strong> —— 刚过 21 元合规下限，但低于行业合理区间（30–50 元）</li>
+    <li>日薪 <strong>180 元</strong>（8 小时）</li>
+    <li>月薪 <strong>3,960 元</strong>（22 天全职）</li>
+  </ul>
+  <p style="margin-bottom:0"><strong>结论：这个价格能勉强合规，但没有竞争力。</strong>要让时薪达到 25 元需 0.033 元/帧，达到 30 元需 0.04 元/帧，达到 35 元需 0.047 元/帧。建议基础单价定在 <strong>0.035 – 0.045 元/帧</strong>。</p>
+</div>
+
+<h2>四、使用建议</h2>
+<ul>
+  <li><strong>先确认任务类型</strong>：是「帧级快速确认」还是「逐帧拉框 + 分割」？两者产能差 60 倍，定价完全不同。</li>
+  <li><strong>用试标验证产能</strong>：让 5–10 人实标 500–1,000 帧，记录真实「帧/小时」，再用本测算器定价。</li>
+  <li><strong>合规底线</strong>：兼职（非全日制用工）结算不得低于当地小时最低工资，2026 年多数地区为 21–25 元/小时。</li>
+  <li><strong>关注价格下行</strong>：3D 拉框单价自 2016 年累计下降约 40%–50%，长期看需靠 AI 预标注提效，而非压价。</li>
+</ul>
+
+<footer>
+  测算公式：时薪 = 单价 × 产能；日薪 = 时薪 × 8；月薪 = 日薪 × 22。产能区间为行业公开数据与场景估算，实际须以试标实测为准。合规下限请以当地最新公布的非全日制小时最低工资标准为准。
+</footer>
+
+</div>
+<script>
+const pEl=document.getElementById('p'),cEl=document.getElementById('c');
+function upd(){
+  const p=+pEl.value,c=+cEl.value;
+  const h=p*c;
+  document.getElementById('pv').textContent=p.toFixed(2);
+  document.getElementById('cv').textContent=c;
+  document.getElementById('h').textContent=h.toFixed(1);
+  document.getElementById('d').textContent=Math.round(h*8).toLocaleString('zh-CN');
+  document.getElementById('m').textContent=Math.round(h*8*22).toLocaleString('zh-CN');
+  const v=document.getElementById('verdict');
+  if(h<21){v.textContent='低于 21 元/小时的兼职合规下限，存在法律风险。';v.style.color='#A32D2D';}
+  else if(h<30){v.textContent='刚过合规下限，但低于行业合理区间（30–50 元/小时），较难留住熟练标注员。';v.style.color='#854F0B';}
+  else if(h<=50){v.textContent='处于行业合理区间（30–50 元/小时），具备竞争力。';v.style.color='#3B6D11';}
+  else {v.textContent='高于行业水平，招聘与留人优势明显。';v.style.color='#3B6D11';}
+}
+pEl.addEventListener('input',upd);cEl.addEventListener('input',upd);
+document.querySelectorAll('.presets button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    pEl.value=b.dataset.p;cEl.value=b.dataset.c;upd();
+  });
+});
+upd();
+</script>
+</body>
+</html>
