@@ -2,565 +2,515 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#141518">
-<title>数据标注计件薪酬计算器</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数据标注项目 · 规模测算计算器</title>
 <style>
-  /* ============================================================
-     1. 设计令牌（Design Tokens）
-     ------------------------------------------------------------
-     字号 / 间距 / 圆角均用 clamp() 做流体化处理，
-     随视口宽度在区间内平滑缩放，避免断点处突变。
-     ============================================================ */
+:root{
+  --bg:#f4f5f7; --card:#ffffff; --text:#1b1c1e; --muted:#6b7280;
+  --border:rgba(0,0,0,.10); --line:rgba(0,0,0,.07);
+  --accent:#185FA5; --accent-soft:#E6F1FB;
+  --danger:#A32D2D; --danger-soft:#FCEBEB;
+  --warn:#854F0B; --warn-soft:#FAEEDA;
+  --ok:#0F6E56; --ok-soft:#E1F5EE;
+  --radius:12px;
+}
+@media (prefers-color-scheme: dark){
   :root{
-    /* 色彩 */
-    --bg:#141518; --panel:#1c1e23; --panel2:#23262c; --line:#2e323a;
-    --ink:#e9eaed; --ink2:#a8adb7; --ink3:#8b919c;   /* ink3 提亮 → 对比度 ≈5.2:1，满足 WCAG AA */
-    --accent:#6EA8FE; --accent-dim:#2b3a55;
-    --good:#6FBF73; --good-bg:#1c2a1e;
-    --warn:#E5A64A; --warn-bg:#2a2318;
-    --bad:#E57373;  --bad-bg:#2a1c1c;
-
-    /* 流体字号 */
-    --fs-h1:clamp(19px, 15.5px + 1.05vw, 26px);
-    --fs-h2:clamp(13.5px, 12.4px + 0.42vw, 16px);
-    --fs-body:clamp(13px, 12.5px + 0.2vw, 14.5px);
-    --fs-metric:clamp(17px, 13px + 1.9vw, 30px);
-    --fs-num:clamp(13.5px, 12.6px + 0.28vw, 15px);
-    --fs-small:clamp(11px, 10.6px + 0.18vw, 12.5px);
-
-    /* 流体间距 */
-    --pad-x:clamp(12px, 4px + 3.6vw, 40px);
-    --pad-y:clamp(14px, 8px + 2.4vw, 46px);
-    --gap:clamp(8px, 4px + 1.1vw, 22px);
-    --gap-sm:clamp(6px, 4px + 0.6vw, 14px);
-    --panel-pad:clamp(13px, 8px + 1.3vw, 24px);
-    --radius:clamp(10px, 8px + 0.7vw, 14px);
-    --radius-sm:clamp(7px, 6px + 0.4vw, 10px);
-
-    /* 交互尺寸 */
-    --range-h:clamp(24px, 20px + 1vw, 28px);  /* 滑块整轨可点击高度 */
-    --thumb:clamp(18px, 16px + 0.9vw, 21px);
+    --bg:#15161a; --card:#1e2025; --text:#e9e9e7; --muted:#9aa0a8;
+    --border:rgba(255,255,255,.12); --line:rgba(255,255,255,.08);
+    --accent:#85B7EB; --accent-soft:#0C447C;
+    --danger:#F09595; --danger-soft:#3a1616;
+    --warn:#EF9F27; --warn-soft:#3a2a0c;
+    --ok:#5DCAA5; --ok-soft:#08322a;
   }
-
-  *{box-sizing:border-box}
-  html{-webkit-text-size-adjust:100%}  /* 阻止横屏时 iOS 自动放大字号 */
-
-  body{
-    margin:0; background:var(--bg); color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    font-size:var(--fs-body); line-height:1.6; -webkit-font-smoothing:antialiased;
-  }
-
-  /* 容器：最大宽度 + 流体内边距 + 刘海屏安全区（横竖屏均不贴边） */
-  .page{
-    width:100%; max-width:960px; margin:0 auto;
-    padding:
-      calc(var(--pad-y) + env(safe-area-inset-top, 0px))
-      calc(var(--pad-x) + env(safe-area-inset-right, 0px))
-      calc(var(--pad-y) + env(safe-area-inset-bottom, 0px))
-      calc(var(--pad-x) + env(safe-area-inset-left, 0px));
-  }
-
-  header{margin-bottom:clamp(16px, 10px + 1.4vw, 32px)}
-  h1{font-size:var(--fs-h1); font-weight:600; margin:0 0 8px;
-     letter-spacing:-.3px; line-height:1.25; text-wrap:balance}
-  .sub{color:var(--ink3); font-size:var(--fs-small); margin:0}
-
-  h2{font-size:var(--fs-h2); font-weight:600; margin:0 0 14px; color:var(--ink);
-     display:flex; align-items:center; gap:10px}
-  h2::before{content:""; width:3px; height:1em; border-radius:2px;
-             background:var(--accent); flex:0 0 auto}
-  p{margin:0 0 12px; color:var(--ink2)}
-
-  .panel{background:var(--panel); border:1px solid var(--line);
-         border-radius:var(--radius); padding:var(--panel-pad)}
-
-  /* ---------- 核心测算：两个滑块 ---------- */
-  .controls{
-    display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
-    gap:clamp(14px, 8px + 2vw, 26px);
-    margin-bottom:clamp(12px, 8px + 1.2vw, 22px);
-  }
-  .controls > div{min-width:0}
-  .ctrl-top{display:flex; justify-content:space-between; align-items:center;
-            gap:10px; margin-bottom:8px; flex-wrap:wrap}
-  .ctrl-top > label{font-size:var(--fs-small); color:var(--ink2)}
-
-  .numbox{display:flex; align-items:center; gap:5px; min-width:0}
-  .numbox input{
-    width:clamp(64px, 56px + 2.2vw, 84px); text-align:right;
-    font-size:var(--fs-num); font-weight:600;
-    background:var(--panel2); border:1px solid var(--line);
-    border-radius:var(--radius-sm); color:var(--ink); padding:4px 9px;
-    font-variant-numeric:tabular-nums; font-family:inherit;
-  }
-  .numbox input:focus{outline:none}
-  .numbox input:focus-visible{outline:2px solid var(--accent);
-    outline-offset:1px; border-color:var(--accent)}
-  .numbox span{font-size:var(--fs-small); color:var(--ink3); white-space:nowrap}
-
-  /* 滑块：轨道加高 → 触屏易点；拇指尺寸随视口流体缩放 */
-  input[type=range]{
-    -webkit-appearance:none; appearance:none;
-    width:100%; height:var(--range-h); background:transparent;
-    cursor:pointer; margin:0; display:block;
-  }
-  input[type=range]::-webkit-slider-runnable-track{
-    height:5px; border-radius:3px; background:var(--line);
-  }
-  input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none; width:var(--thumb); height:var(--thumb);
-    border-radius:50%; background:var(--accent); border:3px solid var(--panel);
-    cursor:pointer; margin-top:calc((5px - var(--thumb)) / 2);
-    box-shadow:0 1px 4px rgba(0,0,0,.45);
-  }
-  input[type=range]::-moz-range-track{height:5px; border-radius:3px; background:var(--line)}
-  input[type=range]::-moz-range-thumb{
-    width:var(--thumb); height:var(--thumb); border-radius:50%;
-    background:var(--accent); border:3px solid var(--panel);
-    cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.45);
-  }
-  input[type=range]:focus{outline:none}
-  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 5px var(--accent-dim)}
-  input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 5px var(--accent-dim)}
-
-  /* 隐藏数字框自带的上下微调箭头：
-     既腾出横向空间（窄屏不再截断数值），也去掉过小的点击目标 */
-  input[type=number]{-moz-appearance:textfield; appearance:textfield}
-  input[type=number]::-webkit-outer-spin-button,
-  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; appearance:none; margin:0}
-
-  /* ---------- 产能换算与工时 ---------- */
-  .convert{border-top:1px solid var(--line);
-           padding-top:clamp(10px, 8px + 1vw, 16px);
-           margin-bottom:clamp(12px, 8px + 1.2vw, 24px)}
-  .convert-hd{font-size:var(--fs-small); color:var(--ink3); margin:0 0 12px;
-              display:flex; align-items:center; gap:9px; flex-wrap:wrap}
-  .convert-hd em{font-style:normal; font-size:.92em; opacity:.72}
-  .convert-grid{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
-                gap:var(--gap-sm)}
-  .fld{
-    background:var(--panel2); border-radius:var(--radius-sm);
-    padding:clamp(8px, 6px + 0.5vw, 12px) clamp(9px, 7px + 0.6vw, 14px);
-    display:flex; justify-content:space-between; align-items:center;
-    gap:8px; flex-wrap:wrap; min-width:0;   /* 空间不足时自动换行，绝不溢出 */
-  }
-  .fld > label{font-size:var(--fs-small); color:var(--ink3); white-space:nowrap}
-  .fld .numbox{flex:0 1 auto; min-width:0}
-  .fld .numbox input{width:clamp(58px, 50px + 2vw, 74px);
-                     font-size:var(--fs-num); padding:3px 8px}
-  .fld .numbox span{font-size:.94em; white-space:nowrap}
-  .convert-ft{font-size:var(--fs-small); color:var(--ink3); margin:12px 0 0; text-align:right}
-  .convert-ft b{color:var(--ink2); font-variant-numeric:tabular-nums}
-  .sm{display:none}   /* 窄屏用的短标签，默认隐藏 */
-
-  /* ---------- 指标卡 ---------- */
-  .metrics{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
-           gap:var(--gap-sm); margin-bottom:clamp(12px, 8px + 1.2vw, 20px)}
-  .metric{background:var(--panel2); border-radius:var(--radius-sm);
-          padding:clamp(9px, 7px + 0.8vw, 15px) clamp(10px, 8px + 1vw, 17px);
-          min-width:0; overflow:hidden}
-  .metric .k{font-size:var(--fs-small); color:var(--ink3); margin-bottom:5px;
-             line-height:1.35; overflow-wrap:break-word}
-  .metric .v{font-size:var(--fs-metric); font-weight:600; line-height:1.2;
-             font-variant-numeric:tabular-nums; letter-spacing:-.4px; white-space:nowrap}
-  .metric .u{font-size:clamp(11px, 10px + 0.4vw, 13px); color:var(--ink3);
-             font-weight:400; margin-left:2px}
-
-  /* ---------- 合规标尺 ---------- */
-  .gauge{margin:0 0 4px}
-  .gauge-bar{
-    position:relative; height:10px; border-radius:5px;
-    background:linear-gradient(90deg,
-      rgba(229,115,115,.55) 0 35%,
-      rgba(229,166,74,.55) 35% 50%,
-      rgba(111,191,115,.5) 50% 83.33%,
-      rgba(111,191,115,.9) 83.33% 100%);
-  }
-  .gauge-pin{
-    position:absolute; top:-5px; width:3px; height:20px; border-radius:2px;
-    background:var(--ink); transform:translateX(-50%);
-    box-shadow:0 0 0 3px var(--panel), 0 0 9px rgba(233,234,237,.4);
-    transition:left .12s ease;
-  }
-  .gauge-scale{position:relative; height:17px; margin-top:7px}
-  .gauge-scale span{position:absolute; font-size:var(--fs-small); color:var(--ink3);
-                    font-variant-numeric:tabular-nums}
-  .gauge-note{display:flex; flex-wrap:wrap; gap:14px; margin:0 0 18px;
-              font-size:var(--fs-small); color:var(--ink3)}
-  .gauge-note span{display:flex; align-items:center; gap:5px}
-  .gauge-note i{width:9px; height:9px; border-radius:3px; display:inline-block; flex:0 0 auto}
-
-  .verdict{font-size:var(--fs-body); line-height:1.6; padding:13px 16px;
-           border-radius:var(--radius-sm); border:1px solid var(--line);
-           overflow-wrap:break-word}
-  .note{font-size:var(--fs-small); color:var(--ink3); margin:18px 0 0; line-height:1.65}
-  footer{margin-top:clamp(28px, 20px + 3vw, 48px); padding-top:18px;
-         border-top:1px solid var(--line); font-size:var(--fs-small);
-         color:var(--ink3); line-height:1.7}
-
-  /* ============================================================
-     2. 断点策略
-     ------------------------------------------------------------
-     小屏手机 ≤340 · 手机 ≤640 · 小平板/窄窗口 641–820（两列 + 通过率整行）
-     · 平板/笔记本/桌面 ≥821（三列并排，走默认流体样式）
-     · 手机横屏（按高度压缩） · 触屏（放大热区）
-     ============================================================ */
-
-  /* ---------- 小平板 / 窄窗口（641–820px）：两列 + 通过率独占一行 ---------- */
-  @media (min-width:641px) and (max-width:820px){
-    .controls{grid-template-columns:repeat(2, minmax(0, 1fr))}
-    .controls > div:nth-child(3){grid-column:1 / -1}
-  }
-
-  /* ---------- 手机（≤640px）：紧凑版式 ----------
-     纵向尺寸全部改用 dvh 流体化：矮屏保持紧凑（不溢出），
-     高屏自动放大间距与字号，避免底部出现大片空白。 */
-  @media (max-width:640px){
-    .page{padding:clamp(14px, 2.4dvh, 24px) 12px clamp(16px, 2.6dvh, 26px)}
-    header{margin-bottom:clamp(11px, 1.9dvh, 20px)}
-    h1{font-size:clamp(17px, 16px + 0.6vw, 19px); margin:0}
-    h2{font-size:13px; margin:0 0 9px}
-    h2::before{height:13px}
-    .panel{padding:clamp(13px, 2.3dvh, 22px); border-radius:12px}
-
-    /* 单价 / 产能 并排一行（省纵向空间），通过率独占整行（拖动行程更长） */
-    .controls{grid-template-columns:repeat(2, minmax(0, 1fr));
-              gap:clamp(9px, 1.6dvh, 15px) 10px;
-              margin-bottom:clamp(11px, 1.8dvh, 18px)}
-    .controls > div:nth-child(3){grid-column:1 / -1}
-    .ctrl-top{margin-bottom:clamp(5px, 1.1dvh, 10px)}
-    .ctrl-top > label{font-size:12px}
-    .numbox input{width:clamp(54px, 15vw, 64px);
-                  font-size:clamp(14px, 1.7dvh, 17px);
-                  padding:3px 7px; border-radius:7px}
-    .numbox span{font-size:11px}
-
-    .convert{padding-top:clamp(10px, 1.7dvh, 16px);
-             margin-bottom:clamp(11px, 1.7dvh, 16px)}
-    .convert-hd{font-size:11px; margin-bottom:clamp(8px, 1.3dvh, 13px)}
-    .convert-hd em{display:none}
-    .convert-grid{grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px}
-    /* 三个字段转纵向排布，窄列也不挤压 */
-    .fld{flex-direction:column; align-items:stretch; gap:3px; flex-wrap:nowrap;
-         padding:clamp(7px, 1.1dvh, 12px) clamp(8px, 1.3dvh, 13px); border-radius:8px}
-    .fld > label{font-size:10px}
-    .lg{display:none} .sm{display:inline}
-    .fld .numbox{justify-content:space-between; gap:3px; flex-wrap:nowrap}
-    .fld .numbox input{flex:1 1 auto; width:auto; min-width:0;
-                       font-size:12.5px; padding:2px 4px; border-radius:6px}
-    .fld .numbox span{font-size:9px}
-    .convert-ft{font-size:10.5px; margin-top:clamp(7px, 1.2dvh, 12px)}
-
-    .metrics{gap:6px; margin-bottom:clamp(11px, 1.7dvh, 16px)}
-    .metric{padding:clamp(8px, 1.4dvh, 14px) clamp(9px, 1.5dvh, 15px); border-radius:8px}
-    .metric .k{font-size:10px; margin-bottom:2px}
-    .metric .v{font-size:clamp(16px, 2.6dvh, 24px)}
-    .metric .u{font-size:10px; margin-left:1px}
-
-    .gauge-note{gap:8px; margin-bottom:clamp(10px, 1.6dvh, 15px); font-size:9.5px}
-    .gauge-note i{width:7px; height:7px; border-radius:2px}
-    .gauge-scale{height:13px; margin-top:clamp(4px, 0.9dvh, 9px)}
-    .gauge-scale span{font-size:9.5px}
-    .verdict{font-size:clamp(11.5px, 1.6dvh, 14px); line-height:1.5; border-radius:8px;
-             padding:clamp(8px, 1.4dvh, 14px) clamp(10px, 1.6dvh, 16px)}
-
-    /* 短屏先隐藏说明文字保证一屏内显示 */
-    .sub, .note, footer{display:none}
-    footer{margin-top:24px}
-  }
-
-  /* ---------- 高屏手机：恢复副标题与说明文字，让版面充实不空 ---------- */
-  @media (max-width:640px) and (min-height:700px){
-    .sub{display:block}
-    .note{display:block; margin-top:clamp(14px, 2dvh, 22px)}
-  }
-
-  /* ---------- 很高屏手机：补回页脚公式与免责声明，填满版面 ---------- */
-  @media (max-width:640px) and (min-height:900px){
-    footer{display:block; margin-top:clamp(12px, 1.6dvh, 20px);
-           padding-top:clamp(9px, 1.2dvh, 14px);
-           font-size:10px; line-height:1.5}
-  }
-
-  /* ---------- 超小屏手机（≤340px）：进一步收紧纵向节奏 ---------- */
-  @media (max-width:340px){
-    .page{padding-left:calc(10px + env(safe-area-inset-left, 0px));
-          padding-right:calc(10px + env(safe-area-inset-right, 0px))}
-    header{margin-bottom:7px}
-    .panel{padding:11px; border-radius:10px}
-    .controls{gap:10px; margin-bottom:11px}
-    .ctrl-top{margin-bottom:4px}
-    .convert{padding-top:9px; margin-bottom:9px}
-    .metrics{gap:5px; margin-bottom:9px}
-    .metric{padding:7px 8px}
-    .metric .v{font-size:16px; letter-spacing:-.8px}
-    .metric .u{font-size:9px; margin-left:1px}
-    .gauge-note{gap:6px; margin-bottom:9px; font-size:9px}
-    .gauge-scale{height:12px; margin-top:3px}
-    .verdict{font-size:11px; padding:7px 9px}
-  }
-
-  /* ---------- 手机横屏 / 矮视口：压缩纵向节奏，恢复双列 ---------- */
-  @media (max-height:560px) and (orientation:landscape){
-    .page{padding-top:calc(10px + env(safe-area-inset-top, 0px));
-          padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px))}
-    header{margin-bottom:10px}
-    .sub, .note, footer{display:none}
-    .controls{grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px;
-              margin-bottom:12px}
-    .convert{margin-bottom:12px}
-    .metrics{margin-bottom:12px}
-  }
-
-  /* ---------- 触屏设备：放大交互热区 ----------
-     仅在纵向空间充裕时生效，避免与"小屏单屏显示"目标冲突 */
-  @media (pointer:coarse) and (min-height:600px){
-    .controls .numbox input{min-height:36px; padding:5px 10px}
-    .controls input[type=range]{height:28px}
-    .convert-grid .numbox input{min-height:28px}
-  }
-
-  /* ---------- 无障碍：尊重"减少动态效果"偏好 ---------- */
-  @media (prefers-reduced-motion:reduce){
-    *{transition-duration:.01ms !important; animation-duration:.01ms !important}
-  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);
+  font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Segoe UI",system-ui,sans-serif;
+  font-size:14px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:30px 18px 64px}
+header{margin-bottom:20px}
+h1{font-size:21px;font-weight:600;margin:0 0 6px;letter-spacing:.2px}
+.sub{color:var(--muted);font-size:13px;margin:0}
+.card{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.card h2{font-size:14px;font-weight:600;margin:0 0 14px;display:flex;align-items:center;gap:8px}
+.card h2 .idx{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+  border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:600;flex:none}
+.seg{display:inline-flex;background:var(--bg);border:.5px solid var(--border);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap;margin-bottom:14px}
+.seg button{border:0;background:transparent;color:var(--muted);font-family:inherit;font-size:13px;
+  padding:6px 16px;border-radius:7px;cursor:pointer;transition:.15s}
+.seg button.active{background:var(--card);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.inputwrap{position:relative}
+.inputwrap .unit{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12.5px;pointer-events:none}
+input[type=number]{width:100%;height:40px;padding:0 46px 0 12px;font-family:inherit;font-size:15px;
+  color:var(--text);background:var(--bg);border:.5px solid var(--border);border-radius:9px;outline:none;
+  font-variant-numeric:tabular-nums}
+input[type=number]:focus{border-color:var(--accent);background:var(--card)}
+.hint{font-size:12px;color:var(--muted);margin:8px 2px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px}
+.mc{background:var(--bg);border-radius:10px;padding:13px 14px}
+.mc .k{font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.mc .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.mc .n{font-size:11.5px;color:var(--muted);margin-top:3px}
+.mc.hi{background:var(--accent-soft)} .mc.hi .v{color:var(--accent)}
+.mc.warn{background:var(--warn-soft)} .mc.warn .v{color:var(--warn)}
+.mc.ok{background:var(--ok-soft)} .mc.ok .v{color:var(--ok)}
+.mc.bad{background:var(--danger-soft)} .mc.bad .v{color:var(--danger)}
+.banner{border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+.banner.ok{background:var(--ok-soft);color:var(--ok)}
+.banner.warn{background:var(--warn-soft);color:var(--warn)}
+.banner.bad{background:var(--danger-soft);color:var(--danger)}
+.banner.info{background:var(--accent-soft);color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;text-align:right;border-bottom:.5px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:500;color:var(--muted);font-size:12px;border-bottom:.5px solid var(--border)}
+tbody tr:last-child td{border-bottom:0}
+tr.hl td{font-weight:600;background:var(--bg)}
+tr.sum td{font-weight:600;background:var(--ok-soft)}
+tr.sum td:first-child{color:var(--ok)}
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+td input[type=number]{height:30px;padding:0 6px;font-size:13px;text-align:right;border-radius:6px;background:var(--card);width:76px;min-width:76px}
+th input[type=number]{height:28px;padding:0 4px;font-size:12px;text-align:right;border-radius:6px;background:var(--card)}
+.tblwrap.wide table{min-width:760px}
+.tblwrap.xwide table{min-width:940px}
+.ok-t{color:var(--ok);font-weight:600}
+.warn-t{color:var(--warn);font-weight:600}
+.bad-t{color:var(--danger);font-weight:600}
+.muted{color:var(--muted)}
+ol,ul{margin:0;padding-left:20px}
+li{margin-bottom:5px} li:last-child{margin-bottom:0}
+.note{font-size:12.5px;color:var(--muted)}
+.foot{margin-top:12px;padding:14px 16px;border-radius:10px;background:var(--danger-soft);color:var(--danger);font-size:12.5px}
+.btn{height:38px;padding:0 16px;border-radius:9px;border:.5px solid var(--border);background:var(--bg);
+  color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;transition:.15s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
+.row-btn{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+details{border:.5px solid var(--border);border-radius:10px;padding:0 14px;margin-bottom:16px;background:var(--card)}
+details>summary{cursor:pointer;padding:13px 0;font-size:13.5px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"＋";color:var(--accent);font-weight:600}
+details[open]>summary::before{content:"－"}
+details .inner{padding:0 0 16px}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-left:6px}
+@media (max-width:560px){
+  .wrap{padding:20px 12px 48px} h1{font-size:18px} .mc .v{font-size:19px}
+}
 </style>
 </head>
 <body>
-<div class="page">
+<div class="wrap">
 
-<header>
-  <h1>数据标注计件薪酬计算器</h1>
-  <p class="sub">单价 × 产能 × 通过率 = 时薪　·　含兼职合规判定</p>
-</header>
+  <header>
+    <h1>数据标注项目 · 规模测算计算器</h1>
+    <p class="sub">通用规模测算：改参数 → 实时出月通过量 / 月收入 / 计件成本 / 净利 / 单帧成本 / 周转金</p>
+  </header>
 
-<h2>核心测算</h2>
-<div class="panel">
-  <div class="controls">
-    <div>
-      <div class="ctrl-top">
-        <label for="p">单价</label>
-        <div class="numbox"><input type="number" id="pNum" min="0.01" max="4" step="0.01" value="0.03" inputmode="decimal"><span>元/帧</span></div>
-      </div>
-      <input type="range" id="p" min="0.01" max="4" step="0.01" value="0.03" aria-label="单价（元/帧）">
+  <div class="card">
+    <h2><span class="idx">1</span>目标规模</h2>
+    <div class="seg">
+      <button class="sz" data-n="10" type="button">10 人</button>
+      <button class="sz active" data-n="100" type="button">100 人</button>
+      <button class="sz" data-n="1000" type="button">1000 人</button>
     </div>
-    <div>
-      <div class="ctrl-top">
-        <label for="c">产能</label>
-        <div class="numbox"><input type="number" id="cNum" min="5" max="1000" step="1" value="750" inputmode="numeric"><span><span class="lg">帧/小时</span><span class="sm">帧/时</span></span></div>
+    <div class="fields">
+      <div>
+        <label for="nTarget">自定义人数</label>
+        <div class="inputwrap"><input id="nTarget" type="number" min="1" step="10" value="100"><span class="unit">人</span></div>
       </div>
-      <input type="range" id="c" min="5" max="1000" step="1" value="750" aria-label="产能（帧/小时）">
     </div>
-    <div>
-      <div class="ctrl-top">
-        <label for="q">通过率</label>
-        <div class="numbox"><input type="number" id="qNum" min="50" max="100" step="1" value="95" inputmode="numeric"><span>%</span></div>
-      </div>
-      <input type="range" id="q" min="50" max="100" step="1" value="95" aria-label="质检通过率（%）">
+    <div id="banner" class="banner info" style="margin-top:14px"></div>
+    <div class="grid">
+      <div class="mc"><div class="k">月通过量</div><div class="v" id="oQty">0</div><div class="n">帧</div></div>
+      <div class="mc"><div class="k">月收入</div><div class="v" id="oInc">0</div><div class="n">元</div></div>
+      <div class="mc hi"><div class="k">月净利</div><div class="v" id="oNet">0</div><div class="n" id="oRate">净利率 —</div></div>
+      <div class="mc"><div class="k">单帧人工成本</div><div class="v" id="oCost">0</div><div class="n" id="oRed">红线 0.04 元/帧</div></div>
+      <div class="mc"><div class="k">人均月净利</div><div class="v" id="oPer">0</div><div class="n">元/人/月</div></div>
+      <div class="mc"><div class="k">建议周转金</div><div class="v" id="oCap">0</div><div class="n">≈ 3.3 周人工支出</div></div>
     </div>
   </div>
 
-  <div class="convert">
-    <div class="convert-hd">产能换算与工时<em>任填其一，自动联动</em></div>
-    <div class="convert-grid">
-      <div class="fld">
-        <label for="cpmNum"><span class="lg">每分钟产能</span><span class="sm">每分钟</span></label>
-        <div class="numbox"><input type="number" id="cpmNum" min="0.1" max="16.7" step="0.1" value="12.5" inputmode="decimal"><span><span class="lg">帧/分钟</span><span class="sm">帧/分</span></span></div>
-      </div>
-      <div class="fld">
-        <label for="cpdNum">每天产出</label>
-        <div class="numbox"><input type="number" id="cpdNum" min="5" max="16000" step="10" value="6000" inputmode="numeric"><span>帧/天</span></div>
-      </div>
-      <div class="fld">
-        <label for="hpdNum">每天工作</label>
-        <div class="numbox"><input type="number" id="hpdNum" min="1" max="16" step="0.5" value="8" inputmode="decimal"><span>小时</span></div>
-      </div>
+  <div class="card">
+    <h2><span class="idx">2</span>参数与假设</h2>
+    <div class="fields">
+      <div><label for="unit">甲方结算单价</label><div class="inputwrap"><input id="unit" type="number" min="0" step="0.005" value="0.08"><span class="unit">元/帧</span></div></div>
+      <div><label for="cost">单帧人工成本</label><div class="inputwrap"><input id="cost" type="number" min="0" step="0.0001" value="0.03"><span class="unit">元/帧</span></div></div>
+      <div><label for="perday">人均日通过</label><div class="inputwrap"><input id="perday" type="number" min="0" step="10" value="4500"><span class="unit">帧/人/日</span></div></div>
+      <div><label for="workdays">月工作日</label><div class="inputwrap"><input id="workdays" type="number" min="1" max="31" step="1" value="22"><span class="unit">天/月</span></div></div>
+      <div><label for="rew">拉新与带教奖励</label><div class="inputwrap"><input id="rew" type="number" min="0" step="1" value="50"><span class="unit">元/人/月</span></div></div>
+      <div><label for="redline">成本红线（参考）</label><div class="inputwrap"><input id="redline" type="number" min="0" step="0.001" value="0.04"><span class="unit">元/帧</span></div></div>
     </div>
-    <p class="convert-ft">有效产能 <b id="effCap">712.5</b> 帧/小时（<span id="effCalc">750 × 95%</span>）　·　单帧耗时 <b id="spf">4.8 秒</b></p>
+    <div class="row-btn">
+      <button id="reset" class="btn" type="button">恢复默认参数</button>
+    </div>
+    <p class="hint">人均日通过 = 100 人月通过量 ÷ (100 × 月工作日)。以上均为<strong>示例参数</strong>，请按实际业务替换。</p>
   </div>
 
-  <div class="metrics">
-    <div class="metric"><div class="k">折算时薪</div><div class="v"><span id="h">22.5</span><span class="u">元</span></div></div>
-    <div class="metric"><div class="k">日薪（<span id="hpdLabel">8</span> 小时）</div><div class="v"><span id="d">180</span><span class="u">元</span></div></div>
-    <div class="metric"><div class="k">月薪（22 天）</div><div class="v"><span id="m">3,960</span><span class="u">元</span></div></div>
-  </div>
-
-  <div class="gauge">
-    <div class="gauge-bar"><span class="gauge-pin" id="gaugePin"></span></div>
-    <div class="gauge-scale">
-      <span style="left:0;transform:none">0</span>
-      <span style="left:35%;transform:translateX(-50%)">21</span>
-      <span style="left:50%;transform:translateX(-50%)">30</span>
-      <span style="left:83.33%;transform:translateX(-50%)">50</span>
-      <span style="left:100%;transform:translateX(-100%)">60</span>
+  <div class="card">
+    <h2><span class="idx">3</span>三档规模对比（10 / 100 / 1000 人）</h2>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>指标</th><th>10 人</th><th>100 人</th><th>1000 人</th></tr></thead>
+        <tbody id="tbl3"></tbody>
+      </table>
     </div>
   </div>
-  <div class="gauge-note">
-    <span><i style="background:rgba(229,115,115,.85)"></i>低于合规</span>
-    <span><i style="background:rgba(229,166,74,.85)"></i>合规但偏低</span>
-    <span><i style="background:rgba(111,191,115,.75)"></i>行业合理区间</span>
-    <span><i style="background:rgba(111,191,115,1)"></i>高于行业</span>
+
+  <div class="card">
+    <h2><span class="idx">4</span>资金需求</h2>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>规模</th><th>人数</th><th>月人工支出</th><th>周人工支出</th><th>建议周转金</th></tr></thead>
+        <tbody id="tblFund"></tbody>
+      </table>
+    </div>
+    <p class="hint">周人工支出 = 月（计件 + 效率奖）× 6 ÷ 月工作日；建议周转金 ≈ 周人工支出 × 3.3（覆盖账期垫资 + 结算安全垫）。</p>
   </div>
 
-  <div class="verdict" id="verdict"></div>
+  <details open>
+    <summary>五档手速成本表<span class="tag">可编辑，反推单帧人工成本</span></summary>
+    <div class="inner">
+      <div class="tblwrap xwide">
+        <table>
+          <thead>
+            <tr><th>手速档</th><th>日提交</th><th>日通过</th><th>通过率</th><th>档位</th><th>单价</th><th>计件费</th><th>效率奖</th><th>日收入</th><th>成本(元/帧)</th><th>占比</th></tr>
+          </thead>
+          <tbody id="tblSpeed"></tbody>
+        </table>
+      </div>
+      <div class="row-btn">
+        <button id="applyCost" class="btn primary" type="button">用分布口径覆盖「单帧人工成本」</button>
+        <span class="hint" style="margin:0">分布口径由五档手速自下而上加权推导，可与上方「单帧人工成本」互为校验。</span>
+      </div>
+    </div>
+  </details>
 
-  <p class="note"><span class="lg">产能可用「帧/小时」「帧/分钟」「帧/天」任一口径填写，自动换算；「每天工作」决定日薪计入的小时数（月薪按 22 天估算）。「通过率」指质检验收比例：有效产能 = 产能 × 通过率，时薪按有效产能结算。合规下限参考多数地区非全日制小时最低工资 21–25 元/小时；3D 标注兼职的行业合理区间为 30–50 元/小时。</span><span class="sm">产能可填「帧/小时」「帧/分钟」「帧/天」，自动换算。「通过率」为质检验收比例：有效产能 = 产能 × 通过率，时薪按有效产能结算。合规下限参考多数地区非全日制小时最低工资 21–25 元/小时。</span></p>
-</div>
+  <details>
+    <summary>个人计件规则（分档单价 + 效率奖）<span class="tag">可编辑</span></summary>
+    <div class="inner">
+      <div class="fields" style="margin-bottom:14px">
+        <div><label for="pA">A 档单价（通过率 ≥95%）</label><div class="inputwrap"><input id="pA" type="number" min="0" step="0.0005" value="0.0300"><span class="unit">元/帧</span></div></div>
+        <div><label for="pB">B 档单价（≥90%）</label><div class="inputwrap"><input id="pB" type="number" min="0" step="0.0005" value="0.0280"><span class="unit">元/帧</span></div></div>
+        <div><label for="pC">C 档单价（≥85%）</label><div class="inputwrap"><input id="pC" type="number" min="0" step="0.0005" value="0.0260"><span class="unit">元/帧</span></div></div>
+        <div><label for="pD">D 档单价（≥80%）</label><div class="inputwrap"><input id="pD" type="number" min="0" step="0.0005" value="0.0240"><span class="unit">元/帧</span></div></div>
+        <div><label for="pE">E 档单价（&lt;80%）</label><div class="inputwrap"><input id="pE" type="number" min="0" step="0.0005" value="0.0220"><span class="unit">元/帧</span></div></div>
+      </div>
+      <div class="fields">
+        <div><label for="b1t">高效门槛</label><div class="inputwrap"><input id="b1t" type="number" min="0" step="100" value="5000"><span class="unit">帧/日</span></div></div>
+        <div><label for="b1">高效效率奖</label><div class="inputwrap"><input id="b1" type="number" min="0" step="1" value="20"><span class="unit">元/日</span></div></div>
+        <div><label for="b2t">中效门槛</label><div class="inputwrap"><input id="b2t" type="number" min="0" step="100" value="4000"><span class="unit">帧/日</span></div></div>
+        <div><label for="b2">中效效率奖</label><div class="inputwrap"><input id="b2" type="number" min="0" step="1" value="12"><span class="unit">元/日</span></div></div>
+        <div><label for="b3t">基本门槛</label><div class="inputwrap"><input id="b3t" type="number" min="0" step="100" value="3000"><span class="unit">帧/日</span></div></div>
+        <div><label for="b3">基本效率奖</label><div class="inputwrap"><input id="b3" type="number" min="0" step="1" value="6"><span class="unit">元/日</span></div></div>
+      </div>
+      <p class="hint">效率奖为按日判定、取最高一档、不叠加；判定仅看当日提交量，与工时无关。</p>
+    </div>
+  </details>
 
-<footer>
-  <span class="lg">测算公式：有效产能 = 产能 × 通过率；时薪 = 单价 × 有效产能；日薪 = 时薪 × 每天工时；月薪 = 日薪 × 22；帧/分钟 = 帧/小时 ÷ 60；每天产出 = 帧/小时 × 每天工时；单帧耗时 = 3600 ÷ 产能（帧/小时）。单价按「元/合格帧」计。</span><span class="sm">有效产能 = 产能 × 通过率；时薪 = 单价 × 有效产能；日薪 = 时薪 × 工时；月薪 = 日薪 × 22。</span><br>
-  <span class="lg">产能与通过率区间为行业公开数据与场景估算，实际须以试标实测为准。合规下限请以当地最新公布的非全日制小时最低工资标准为准。</span><span class="sm">数据为行业估算，实际以试标实测与当地最新标准为准。</span>
-</footer>
+  <details>
+    <summary>敏感性分析：手速分布情景<span class="tag">可编辑占比</span></summary>
+    <div class="inner">
+      <div class="tblwrap wide" style="margin-bottom:14px">
+        <table>
+          <thead><tr><th>情景</th><th>成手</th><th>中上</th><th>普通</th><th>中下</th><th>慢手</th><th>合计</th></tr></thead>
+          <tbody id="tblScen"></tbody>
+        </table>
+      </div>
+      <div class="tblwrap wide">
+        <table>
+          <thead><tr><th>情景</th><th>人均日通过</th><th>人均日收入</th><th>单帧人工成本</th><th>10 人净利</th><th>100 人净利</th><th>1000 人净利</th></tr></thead>
+          <tbody id="tblSens"></tbody>
+        </table>
+      </div>
+      <p class="hint">三种情景可对比各自单帧人工成本与红线的距离——成本是否可控，取决于单价结构而非手速运气。</p>
+    </div>
+  </details>
+
+  <div class="card">
+    <h2><span class="idx">5</span>口径与说明</h2>
+    <ol class="note">
+      <li><b>月通过量</b> = 人均日通过 × 人数 × 月工作日。</li>
+      <li><b>月收入</b> = 月通过量 × 甲方结算单价。</li>
+      <li><b>计件 + 效率奖</b> = 单帧人工成本 × 月通过量。</li>
+      <li><b>月净利</b> = 月收入 − 计件与效率奖 − 拉新与带教。</li>
+      <li><b>单帧人工成本 vs 红线</b>：红线仅针对人工成本；单帧综合成本另含拉新，会略高于红线，但仍低于结算单价。</li>
+      <li><b>成本结构上限</b> = A 档单价 + 满额效率奖 ÷ (高效门槛 × 95%)。</li>
+    </ol>
+    <div class="foot">
+      本工具为通用测算演示，所有默认参数均为<strong>示例值</strong>，请按实际业务替换；测算结果不构成经营承诺。
+    </div>
+  </div>
 
 </div>
 
 <script>
-const $ = id => document.getElementById(id);
-const pEl=$('p'), cEl=$('c'), qEl=$('q');
-const pNum=$('pNum'), cNum=$('cNum'), qNum=$('qNum');
-const cpmNum=$('cpmNum'), cpdNum=$('cpdNum'), hpdNum=$('hpdNum');
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
 
-const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-const round1 = v => Math.round(v * 10) / 10;
-const numStr = v => String(Math.round(v * 10) / 10);
-const cpmStr = v => v >= 1 ? numStr(v) : v.toFixed(2);
-/* 金额：保留至多两位小数，整数不带小数点（如 24.94 / 199.5 / 3,960） */
-const money = v => (Math.round(v * 100) / 100).toLocaleString('zh-CN', {maximumFractionDigits:2});
+  var FIELDS = ["unit","cost","perday","workdays","rew","redline",
+                "pA","pB","pC","pD","pE","b1t","b1","b2t","b2","b3t","b3"];
+  var DEFAULTS = {};
+  FIELDS.forEach(function(id){ DEFAULTS[id] = $(id).value; });
 
-const getHpd = () => clamp(parseFloat(hpdNum.value) || 8, 1, 16);
+  var SPEED_DEF = [
+    {name:"成手", sub:6000, pas:5700, share:0.15},
+    {name:"中上", sub:5200, pas:4940, share:0.25},
+    {name:"普通", sub:4800, pas:4560, share:0.35},
+    {name:"中下", sub:4160, pas:3952, share:0.10},
+    {name:"慢手", sub:3600, pas:3420, share:0.15}
+  ];
+  var SCEN_DEF = [
+    {name:"中性（基准）", w:[0.15,0.25,0.35,0.10,0.15]},
+    {name:"乐观",         w:[0.30,0.30,0.30,0.05,0.05]},
+    {name:"悲观",         w:[0.05,0.10,0.25,0.25,0.35]}
+  ];
+  var speed = SPEED_DEF.map(function(o){ return Object.assign({}, o); });
+  var scen  = SCEN_DEF.map(function(o){ return {name:o.name, w:o.w.slice()}; });
 
-// dec：保留的小数位（不传则不限制）；返回归一后的数值
-function sync(from, to, min, max, dec){
-  const v = parseFloat(from.value);
-  if(isNaN(v)) return;
-  let x = clamp(v, min, max);
-  if(dec){
-    const f = Math.pow(10, dec);
-    x = Math.round(x * f) / f;
+  function n(id){ var v = parseFloat($(id).value); return isFinite(v) && v > 0 ? v : 0; }
+  function n0(id){ var v = parseFloat($(id).value); return isFinite(v) ? v : 0; }
+  function fmtInt(v){ return Math.round(v).toLocaleString("zh-CN"); }
+  function fmt2(v){ return (Math.round(v*100)/100).toLocaleString("zh-CN",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmt4(v){ return (Math.round(v*10000)/10000).toFixed(4); }
+  function pct1(v){ return (v*100).toFixed(1) + "%"; }
+  function pct0(v){ return Math.round(v*100) + "%"; }
+
+  function params(){
+    var p = {};
+    FIELDS.forEach(function(id){ p[id] = n0(id); });
+    p.perday = n("perday"); p.workdays = n("workdays"); p.unit = n("unit");
+    return p;
   }
-  to.value = x;
-  return x;
-}
 
-function update(){
-  const p = clamp(parseFloat(pEl.value) || 0, 0.01, 4);
-  const c = clamp(parseFloat(cEl.value) || 0, 1, 1000);
-  const q = clamp(parseFloat(qEl.value) || 0, 50, 100) / 100;   // 通过率
-  const hpd = getHpd();
-  const effCap = c * q;        // 有效产能（帧/小时）：产能 × 通过率
-  const hNom = p * c;          // 标称时薪（未计通过率）
-  const h = p * effCap;        // 折算时薪（按质检验收量结算）
-
-  $('h').textContent = money(h);
-  $('hpdLabel').textContent = numStr(hpd);
-  $('d').textContent = money(h * hpd);
-  $('m').textContent = money(h * hpd * 22);
-
-  // 联动读数：用户正在输入的框不覆盖，避免打断输入
-  if(document.activeElement !== cpmNum) cpmNum.value = cpmStr(c / 60);
-  if(document.activeElement !== cpdNum) cpdNum.value = Math.round(c * hpd);
-
-  $('effCap').textContent = numStr(effCap);
-  $('effCalc').textContent = numStr(c) + ' × ' + numStr(q * 100) + '%';
-
-  const spf = 3600 / c;
-  $('spf').textContent = spf >= 120 ? round1(spf / 60).toFixed(1) + ' 分钟' : spf.toFixed(1) + ' 秒';
-
-  $('gaugePin').style.left = (clamp(h, 0, 60) / 60 * 100).toFixed(2) + '%';
-
-  const v = $('verdict');
-  let txt, color, border, bg;
-  if(h < 21){
-    txt = '低于 21 元/小时的兼职合规下限，存在法律风险。';
-    color = '#E57373'; border = '#4a2a2a'; bg = '#2a1c1c';
-    txt += '　距合规下限还差 ' + money(21 - h) + ' 元/小时。';
-  } else if(h < 30){
-    txt = '刚过合规下限，但低于行业合理区间（30–50 元/小时），较难留住熟练标注员。';
-    color = '#E5A64A'; border = '#4a3a22'; bg = '#2a2318';
-    txt += '　距行业下限还差 ' + money(30 - h) + ' 元/小时。';
-  } else if(h <= 50){
-    txt = '处于行业合理区间（30–50 元/小时），具备竞争力。';
-    color = '#6FBF73'; border = '#2a4230'; bg = '#1c2a1e';
-    txt += '　距行业上限还有 ' + money(50 - h) + ' 元/小时空间。';
-  } else {
-    txt = '高于行业水平，招聘与留人优势明显。';
-    color = '#6FBF73'; border = '#2a4230'; bg = '#1c2a1e';
+  function calc(p, nn){
+    var qty = p.perday * nn * p.workdays;
+    var inc = qty * p.unit;
+    var lab = p.cost * qty;
+    var nw  = p.rew * nn;
+    var net = inc - lab - nw;
+    var allin = qty > 0 ? (Math.abs(lab)+Math.abs(nw))/qty : 0;
+    var weekly = p.workdays > 0 ? lab * 6 / p.workdays : 0;
+    return { n:nn, qty:qty, inc:inc, lab:lab, nw:nw, net:net,
+             rate: inc>0 ? net/inc : 0, allin:allin, percap: nn>0 ? net/nn : 0,
+             weeklyLabor:weekly, capital: weekly*3.3 };
   }
-  if(q < 0.9995){
-    txt += '　未计通过率时 ' + money(hNom) + ' 元/小时。';
-  }
-  if(q < 0.8){
-    txt += '　通过率低于 80%，通常意味着标注规范不清或培训不足，建议先解决质量问题再谈单价。';
-  }
-  v.textContent = txt;
-  v.style.color = color; v.style.borderColor = border; v.style.background = bg;
-}
 
-// 单价 / 产能：输入时同步到滑块；失焦时把越界值夹紧并回填
-function bindNum(numEl, rangeEl, min, max, dec){
-  function norm(){
-    let v = clamp(parseFloat(numEl.value) || min, min, max);
-    if(dec){
-      const f = Math.pow(10, dec);
-      v = Math.round(v * f) / f;
+  function speedRows(p){
+    var map = {A:p.pA, B:p.pB, C:p.pC, D:p.pD, E:p.pE};
+    return speed.map(function(s){
+      var rate = s.sub > 0 ? s.pas/s.sub : 0;
+      var tier = rate>=0.95?"A":rate>=0.90?"B":rate>=0.85?"C":rate>=0.80?"D":"E";
+      var price = map[tier] || 0;
+      var piece = s.pas * price;
+      var bonus = s.sub>=p.b1t ? p.b1 : (s.sub>=p.b2t ? p.b2 : (s.sub>=p.b3t ? p.b3 : 0));
+      var day = piece + bonus;
+      return {name:s.name, sub:s.sub, pas:s.pas, share:s.share, rate:rate, tier:tier,
+              price:price, piece:piece, bonus:bonus, day:day, cost: s.pas>0 ? day/s.pas : 0};
+    });
+  }
+  function weighted(rows){
+    var tp=0, ti=0, ts=0;
+    rows.forEach(function(r){ ts += r.share; tp += r.share*r.pas; ti += r.share*r.day; });
+    return {share:ts, pas:tp, day:ti, cost: tp>0 ? ti/tp : 0};
+  }
+  function scenRows(p){
+    return scen.map(function(s){
+      var rows = speedRows(p);
+      var tp=0, ti=0, tw=0;
+      rows.forEach(function(r,i){ var w = s.w[i]||0; tw+=w; tp += w*r.pas; ti += w*r.day; });
+      var cost = tp>0 ? ti/tp : 0;
+      return {name:s.name, w:s.w, total:tw, perday:tp, day:ti, cost:cost};
+    });
+  }
+
+  var TR = [
+    ["月通过量（帧）", function(r){ return fmtInt(r.qty); }],
+    ["月收入（元）",   function(r){ return fmtInt(r.inc); }],
+    ["计件 + 效率奖（元）", function(r){ return "−" + fmtInt(r.lab); }],
+    ["拉新与带教（元）", function(r){ return "−" + fmtInt(r.nw); }],
+    ["月净利（元）",    function(r){ return fmtInt(r.net); }, "hl"],
+    ["净利率",          function(r){ return pct1(r.rate); }],
+    ["单帧人工成本（元/帧）", function(r, p){ return fmt4(p.cost); }],
+    ["单帧综合成本（元/帧）", function(r){ return fmt4(r.allin); }],
+    ["人均月净利（元）", function(r){ return fmtInt(r.percap); }],
+    ["成本红线校验",    function(r, p){ return p.cost <= (p.redline||0.04) ? "✓ 低于红线" : "⚠ 超红线"; }, "chk"]
+  ];
+
+  function render(){
+    var p = params();
+    var nn = Math.max(1, Math.round(n("nTarget") || 1));
+    var r = calc(p, nn);
+
+    // 目标档卡片
+    $("oQty").textContent = fmtInt(r.qty);
+    $("oInc").textContent = fmtInt(r.inc);
+    $("oNet").textContent = fmtInt(r.net);
+    $("oRate").textContent = "净利率 " + pct1(r.rate);
+    $("oCost").textContent = fmt4(p.cost);
+    $("oPer").textContent = fmtInt(r.percap);
+    $("oCap").textContent = fmtInt(r.capital);
+
+    var costBox = $("oCost").parentNode;
+    costBox.className = "mc " + (p.cost <= (p.redline||0.04) ? "ok" : "bad");
+    $("oRed").textContent = p.cost <= (p.redline||0.04)
+      ? "低于红线 " + fmt4(p.redline||0.04) + " 元/帧"
+      : "⚠ 已超红线 " + fmt4(p.redline||0.04) + " 元/帧";
+
+    var b = $("banner");
+    if(r.net <= 0){
+      b.className = "banner bad";
+      b.textContent = nn + " 人：月净利 " + fmtInt(r.net) + " 元——当前参数下亏损，请检查结算单价或单帧人工成本假设。";
+    } else {
+      b.className = "banner " + (p.cost <= (p.redline||0.04) ? "ok" : "warn");
+      b.textContent = nn + " 人：月净利 " + fmtInt(r.net) + " 元（净利率 " + pct1(r.rate) + "），"
+                    + "单帧人工成本 " + fmt4(p.cost) + " 元，"
+                    + (p.cost <= (p.redline||0.04) ? "低于成本红线。" : "已超成本红线，需下调单价或提高通过率。")
+                    + "建议备周转金 ≥ " + fmtInt(r.capital) + " 元。";
     }
-    numEl.value = v;
-    rangeEl.value = v;
+
+    // 三档对比
+    var html = "";
+    TR.forEach(function(row){
+      var label = row[0], fn = row[1], cls = row[2] || "";
+      var tds = "";
+      [10,100,1000].forEach(function(k){
+        var rr = calc(p, k);
+        var txt = fn(rr, p);
+        var c = cls === "chk" ? ((p.cost <= (p.redline||0.04)) ? "ok-t" : "bad-t") : "";
+        tds += '<td class="' + c + '">' + txt + "</td>";
+      });
+      html += '<tr class="' + (cls === "hl" ? "hl" : "") + '"><td>' + label + "</td>" + tds + "</tr>";
+    });
+    $("tbl3").innerHTML = html;
+
+    // 资金需求
+    var fh = "";
+    [[10,"试点"],[100,"规模"],[1000,"扩张"]].forEach(function(it){
+      var rr = calc(p, it[0]);
+      fh += "<tr><td>" + it[1] + "</td><td>" + fmtInt(it[0]) + "</td><td>" + fmtInt(rr.lab)
+          + "</td><td>" + fmtInt(rr.weeklyLabor) + '</td><td class="ok-t">' + fmtInt(rr.capital) + "</td></tr>";
+    });
+    $("tblFund").innerHTML = fh;
+
+    // 五档手速表
+    var rows = speedRows(p), w = weighted(rows);
+    var sh = "";
+    rows.forEach(function(x, i){
+      sh += "<tr>"
+        + "<td>" + x.name + "</td>"
+        + '<td><input type="number" min="0" step="100" value="' + x.sub + '" data-sk="sub" data-i="' + i + '"></td>'
+        + '<td><input type="number" min="0" step="100" value="' + x.pas + '" data-sk="pas" data-i="' + i + '"></td>'
+        + "<td>" + pct0(x.rate) + "</td>"
+        + "<td>" + x.tier + "</td>"
+        + "<td>" + fmt4(x.price) + "</td>"
+        + "<td>" + fmt2(x.piece) + "</td>"
+        + "<td>" + fmt2(x.bonus) + "</td>"
+        + "<td>" + fmt2(x.day) + "</td>"
+        + "<td>" + fmt4(x.cost) + "</td>"
+        + '<td><input type="number" min="0" step="0.05" value="' + x.share + '" data-sk="share" data-i="' + i + '"></td>'
+        + "</tr>";
+    });
+    sh += '<tr class="sum"><td>加权（按占比）</td><td>—</td><td>' + fmtInt(w.pas) + "</td><td>—</td><td>—</td><td>—</td>"
+        + "<td>—</td><td>—</td><td>" + fmt2(w.day) + "</td><td>" + fmt4(w.cost) + "</td><td>" + pct0(w.share) + "</td></tr>";
+    $("tblSpeed").innerHTML = sh;
+
+    // 敏感性
+    var srows = scenRows(p), rhs = "";
+    scen.forEach(function(s, i){
+      rhs += "<tr><td>" + s.name + "</td>";
+      for(var k=0;k<5;k++){
+        rhs += '<td><input type="number" min="0" step="0.05" value="' + s.w[k] + '" data-sc="' + i + '" data-k="' + k + '"></td>';
+      }
+      rhs += "<td>" + pct0(srows[i].total) + "</td></tr>";
+    });
+    $("tblScen").innerHTML = rhs;
+
+    var sen = "";
+    srows.forEach(function(s, i){
+      function np(k, perday, cost){
+        var qty = perday * k * p.workdays;
+        var inc = qty * p.unit, lab = cost * qty, nw = p.rew * k;
+        return inc - lab - nw;
+      }
+      sen += "<tr><td>" + s.name + "</td><td>" + fmt2(s.perday) + "</td><td>" + fmt2(s.day) + "</td>"
+           + '<td class="' + (s.cost <= (p.redline||0.04) ? "ok-t" : "bad-t") + '">' + fmt4(s.cost) + "</td>"
+           + "<td>" + fmtInt(np(10, s.perday, s.cost)) + "</td>"
+           + "<td>" + fmtInt(np(100, s.perday, s.cost)) + "</td>"
+           + "<td>" + fmtInt(np(1000, s.perday, s.cost)) + "</td></tr>";
+    });
+    $("tblSens").innerHTML = sen;
   }
-  numEl.addEventListener('input', () => { sync(numEl, rangeEl, min, max, dec); update(); });
-  numEl.addEventListener('change', () => { norm(); update(); });
-}
-bindNum(pNum, pEl, 0.01, 4, 2);   // 单价：两位小数
-bindNum(cNum, cEl, 5, 1000);
-bindNum(qNum, qEl, 50, 100);
-pEl.addEventListener('input', () => { pNum.value = pEl.value; update(); });
-cEl.addEventListener('input', () => { cNum.value = cEl.value; update(); });
-qEl.addEventListener('input', () => { qNum.value = qEl.value; update(); });
 
-// 每分钟产能 → 帧/小时
-cpmNum.addEventListener('input', () => {
-  const v = parseFloat(cpmNum.value);
-  if(isNaN(v)) return;
-  const c = clamp(v * 60, 5, 1000);
-  cEl.value = c; cNum.value = c;
-  update();
-});
-cpmNum.addEventListener('change', () => {
-  const c = clamp((parseFloat(cpmNum.value) || 0.1) * 60, 5, 1000);
-  cEl.value = c; cNum.value = c;
-  cpmNum.value = cpmStr(c / 60);
-  update();
-});
+  // 事件
+  document.querySelectorAll(".sz").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll(".sz").forEach(function(x){ x.className = "sz"; });
+      btn.className = "sz active";
+      $("nTarget").value = btn.getAttribute("data-n");
+      render();
+    });
+  });
+  FIELDS.forEach(function(id){ $(id).addEventListener("input", render); });
+  $("nTarget").addEventListener("input", function(){
+    var v = String($("nTarget").value);
+    document.querySelectorAll(".sz").forEach(function(x){
+      x.className = (x.getAttribute("data-n") === v) ? "sz active" : "sz";
+    });
+    render();
+  });
 
-// 每天产出帧数 → 按当前每天工时反推帧/小时
-cpdNum.addEventListener('input', () => {
-  const v = parseFloat(cpdNum.value);
-  if(isNaN(v)) return;
-  const c = clamp(v / getHpd(), 5, 1000);
-  cEl.value = c; cNum.value = c;
-  update();
-});
-cpdNum.addEventListener('change', () => {
-  const c = clamp((parseFloat(cpdNum.value) || 5) / getHpd(), 5, 1000);
-  cEl.value = c; cNum.value = c;
-  cpdNum.value = Math.round(c * getHpd());
-  update();
-});
+  document.addEventListener("input", function(e){
+    var t = e.target, sel = null;
+    if(t.dataset && t.dataset.sk){
+      var i = parseInt(t.dataset.i, 10);
+      var v = parseFloat(t.value);
+      if(!isFinite(v)) v = 0;
+      speed[i][t.dataset.sk] = v;
+      sel = 'input[data-sk="' + t.dataset.sk + '"][data-i="' + i + '"]';
+    } else if(t.dataset && t.dataset.sc !== undefined){
+      var si = parseInt(t.dataset.sc, 10), k = parseInt(t.dataset.k, 10);
+      var v2 = parseFloat(t.value);
+      if(!isFinite(v2)) v2 = 0;
+      scen[si].w[k] = v2;
+      sel = 'input[data-sc="' + si + '"][data-k="' + k + '"]';
+    } else {
+      return;
+    }
+    render();
+    if(sel){
+      var back = document.querySelector(sel);
+      if(back){
+        back.focus();
+        try { back.setSelectionRange(back.value.length, back.value.length); } catch(err){}
+      }
+    }
+  });
 
-// 每天工作小时数 → 直接改变日薪与每天产出
-hpdNum.addEventListener('input', () => {
-  if(isNaN(parseFloat(hpdNum.value))) return;
-  update();
-});
-hpdNum.addEventListener('change', () => {
-  hpdNum.value = numStr(getHpd());
-  update();
-});
+  $("applyCost").addEventListener("click", function(){
+    var p = params();
+    var w = weighted(speedRows(p));
+    $("cost").value = (Math.round(w.cost*100000)/100000);
+    render();
+  });
 
-update();
+  $("reset").addEventListener("click", function(){
+    FIELDS.forEach(function(id){ $(id).value = DEFAULTS[id]; });
+    speed = SPEED_DEF.map(function(o){ return Object.assign({}, o); });
+    scen  = SCEN_DEF.map(function(o){ return {name:o.name, w:o.w.slice()}; });
+    $("nTarget").value = 100;
+    document.querySelectorAll(".sz").forEach(function(x){
+      x.className = (x.getAttribute("data-n") === "100") ? "sz active" : "sz";
+    });
+    render();
+  });
+
+  render();
+})();
 </script>
 </body>
 </html>
